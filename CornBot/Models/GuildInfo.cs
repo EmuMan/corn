@@ -97,7 +97,7 @@ namespace CornBot.Models
 
             foreach (var userInfo in allUsers.Reverse())
             {
-                var user = guild.Users.First(u => u.Id == userInfo.UserId) ?? await client.GetUserAsync(userInfo.UserId);
+                var user = guild.Users.FirstOrDefault(u => u.Id == userInfo.UserId) ?? await client.GetUserAsync(userInfo.UserId);
                 if (user != null)
                     leaderboard.Add(user);
                 if (leaderboard.Count >= count)
@@ -114,6 +114,7 @@ namespace CornBot.Models
 
         public async Task<string> GetLeaderboardsString(int count = 10, bool addSuffix = true)
         {
+            var currencyName = Utility.GetCurrentName();
             var topUsers = await GetLeaderboards(count);
             var response = new StringBuilder();
             long lastCornAmount = 0;
@@ -136,7 +137,7 @@ namespace CornBot.Models
                 var suffix = (!addSuffix) || userData.HasClaimedDaily ?
                     "" : $" {Constants.CALENDAR_EMOJI}";
 
-                response.AppendLine($"{placement} : {stringId} - {cornAmount} corn{suffix}");
+                response.AppendLine($"{placement} : {stringId} - {cornAmount} {currencyName}{suffix}");
 
                 lastCornAmount = cornAmount;
             }

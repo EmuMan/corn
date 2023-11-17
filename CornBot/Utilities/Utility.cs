@@ -25,8 +25,32 @@ namespace CornBot.Utilities
                 2 => Constants.CornEvent.SHUCKING_STREAKS,
                 3 => Constants.CornEvent.NORMAL_DISTRIBUTION_SHUCKING,
                 6 => Constants.CornEvent.PRIDE,
+                10 => Constants.CornEvent.PUMPKIN,
                 _ => Constants.CornEvent.NONE,
             };
+        }
+
+        public static string GetCurrentEmoji()
+        {
+            switch (GetCurrentEvent()) {
+                case Constants.CornEvent.PRIDE:
+                    return Constants.PRIDE_CORN_EMOJI;
+                case Constants.CornEvent.PUMPKIN:
+                    return Constants.PUMPKIN_EMOJI;
+                default:
+                    return Constants.CORN_EMOJI;
+            }
+        }
+
+        public static string GetCurrentName()
+        {
+            switch (GetCurrentEvent())
+            {
+                case Constants.CornEvent.PUMPKIN:
+                    return "pumpkins";
+                default:
+                    return "corn";
+            }
         }
 
         public static string GetUserDisplayString(IUser user, bool includeUsername)

@@ -67,9 +67,11 @@ namespace CornBot.Models
         {
             StringBuilder sb = new();
 
+            var name = Utility.GetCurrentName();
+
             // header
             sb.AppendLine($"## **Cornucopia** ({numberInDay + 1}/3)");
-            sb.AppendLine($"### Bet: {Bet:n0} corn");
+            sb.AppendLine($"### Bet: {Bet:n0} {name}");
             sb.AppendLine();
 
             // slots grid
@@ -100,13 +102,13 @@ namespace CornBot.Models
                 string lineStr = matches == 1 ? "line" : "lines";
                 long absDifference = Math.Abs(winnings - Bet);
                 if (winnings == Bet)
-                    sb.AppendLine($"### You had {matches:n0} {lineStr} and your corn remained the same.");
+                    sb.AppendLine($"### You had {matches:n0} {lineStr} and your {name} remained the same.");
                 else if (winnings < Bet)
-                    sb.AppendLine($"### You had {matches:n0} {lineStr} and lost {absDifference:n0} corn.");
+                    sb.AppendLine($"### You had {matches:n0} {lineStr} and lost {absDifference:n0} {name}.");
                 else
-                    sb.AppendLine($"### You had {matches:n0} {lineStr} and won {absDifference:n0} corn!");
+                    sb.AppendLine($"### You had {matches:n0} {lineStr} and won {absDifference:n0} {name}!");
                 sb.AppendLine();
-                sb.AppendLine($"**You now have {newCorn} corn.**");
+                sb.AppendLine($"**You now have {newCorn} {name}.**");
             }
             
             return sb.ToString();
@@ -118,7 +120,7 @@ namespace CornBot.Models
             BoxValue value = grid[row][col];
             return value switch
             {
-                BoxValue.CORN => Constants.CORN_EMOJI,
+                BoxValue.CORN => Utility.GetCurrentEmoji(),
                 BoxValue.POPCORN => Constants.POPCORN_EMOJI,
                 BoxValue.UNICORN => Constants.UNICORN_EMOJI,
                 _ => Constants.LARGE_BLACK_SQUARE_EMOJI,

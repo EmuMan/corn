@@ -30,20 +30,21 @@ namespace CornBot.Modules
         [SlashCommand("corn", "Gets your total corn count")]
         public async Task Corn([Summary(description: "user to lookup")] IUser? user = null)
         {
-            var cornEmoji = Utility.GetCurrentEvent() == Constants.CornEvent.PRIDE ?
-                Constants.PRIDE_CORN_EMOJI : Constants.CORN_EMOJI;
+            var cornEmoji = Utility.GetCurrentEmoji();
+            var name = Utility.GetCurrentName();
             var economy = _services.GetRequiredService<GuildTracker>();
             var userInfo = economy.LookupGuild(Context.Guild).GetUserInfo(user ?? Context.User);
             var stringId = user is null ? "you have" :
                     user is not SocketGuildUser guildUser ? $"{user} has" :
                     $"{guildUser.DisplayName} ({guildUser}) has";
-            await RespondAsync($"{cornEmoji} {stringId} {userInfo.CornCount} corn {cornEmoji}");
+            await RespondAsync($"{cornEmoji} {stringId} {userInfo.CornCount} {name} {cornEmoji}");
         }
 
         [EnabledInDm(false)]
         [SlashCommand("daily", "Performs your daily shucking of corn")]
         public async Task Daily()
         {
+            var name = Utility.GetCurrentName();
             var economy = _services.GetRequiredService<GuildTracker>();
             var user = economy.LookupGuild(Context.Guild).GetUserInfo(Context.User);
 
@@ -51,10 +52,9 @@ namespace CornBot.Modules
                 await RespondAsync("what are you trying to do, spam the daily command?");
             else
             {
-                var cornEmoji = Utility.GetCurrentEvent() == Constants.CornEvent.PRIDE ?
-                    Constants.PRIDE_CORN_EMOJI : Constants.CORN_EMOJI;
+                var cornEmoji = Utility.GetCurrentEmoji();
                 var amount = await user.PerformDaily();
-                await RespondAsync($"{cornEmoji} you have shucked {amount} corn today. you now have {user.CornCount} corn {cornEmoji}");
+                await RespondAsync($"{cornEmoji} you have shucked {amount} {name} today. you now have {user.CornCount} {name} {cornEmoji}");
             }
         }
 
@@ -66,12 +66,13 @@ namespace CornBot.Modules
         [SlashCommand("leaderboards", "Displays the top corn havers in the guild")]
         public async Task Leaderboards()
         {
+            var name = Utility.GetCurrentName();
             var economy = _services.GetRequiredService<GuildTracker>().LookupGuild(Context.Guild);
 
             var embed = new EmbedBuilder()
                 .WithColor(Color.Gold)
                 .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
-                .WithTitle("Top corn havers:")
+                .WithTitle($"Top {name} havers:")
                 .WithDescription(await economy.GetLeaderboardsString())
                 .WithCurrentTimestamp()
                 .Build();
@@ -83,16 +84,17 @@ namespace CornBot.Modules
         [SlashCommand("total", "Gets the total corn count across all servers")]
         public async Task Total()
         {
-            var cornEmoji = Utility.GetCurrentEvent() == Constants.CornEvent.PRIDE ?
-                Constants.PRIDE_CORN_EMOJI : Constants.CORN_EMOJI;
+            var name = Utility.GetCurrentName();
+            var cornEmoji = Utility.GetCurrentEmoji();
             long total = _services.GetRequiredService<GuildTracker>().GetTotalCorn();
-            await RespondAsync($"{cornEmoji} a total of {total:n0} corn has been shucked across all servers {cornEmoji}");
+            await RespondAsync($"{cornEmoji} a total of {total:n0} {name} has been shucked across all servers {cornEmoji}");
         }
 
         [EnabledInDm(false)]
         [SlashCommand("stats", "Gets an overview of your recent corn shucking")]
         public async Task Stats([Summary(description: "user to lookup")] IUser? user = null)
         {
+            var currencyName = Utility.GetCurrentName();
             var economy = _services.GetRequiredService<GuildTracker>();
             user ??= Context.User;
             var guildInfo = economy.LookupGuild(Context.Guild);
@@ -159,7 +161,7 @@ namespace CornBot.Modules
                 .WithName(user.Username);
 
             var embed = new EmbedBuilder()
-                .WithTitle($"{displayName}'s corn stats")
+                .WithTitle($"{displayName}'s {currencyName} stats")
                 .WithDescription("*server (global)*")
                 .WithAuthor(author)
                 .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
@@ -175,6 +177,7 @@ namespace CornBot.Modules
         [SlashCommand("cornucopia", "play a game of slots to gamble your corn")]
         public async Task Cornucopia([Summary(description: "amount of corn to gamble")] long amount)
         {
+            var name = Utility.GetCurrentName();
             var economy = _services.GetRequiredService<GuildTracker>();
             var userInfo = economy.LookupGuild(Context.Guild).GetUserInfo(Context.User);
             var userHistory = await economy.GetHistory(userInfo.UserId);
@@ -185,11 +188,11 @@ namespace CornBot.Modules
             if (numberInDay >= 3)
                 await RespondAsync("what are you trying to do, feed your gambling addiction?");
             else if (amount < 1)
-                await RespondAsync("you can't gamble less than 1 corn.");
+                await RespondAsync($"you can't gamble less than 1 {name}.");
             else if (amount > userInfo.CornCount)
-                await RespondAsync("you don't have that much corn.");
+                await RespondAsync($"you don't have that much {name}.");
             else if (amount > 100)
-                await RespondAsync("you can't gamble more than 100 corn at a time.");
+                await RespondAsync($"you can't gamble more than 100 {name} at a time.");
             else
             {
                 SlotMachine slotMachine = new(3, amount, random);
