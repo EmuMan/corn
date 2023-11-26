@@ -10,7 +10,6 @@ using Newtonsoft.Json;
 namespace CornBot.Services {
     public class CornAPI {
         private readonly IServiceProvider _services;
-        private string ADMIN_SECRET = "";
 
         public CornAPI(IServiceProvider services) {
             _services = services;
@@ -223,8 +222,9 @@ namespace CornBot.Services {
             }
             else
             {
-
                 var guild = GetGuild(ulong.Parse(queryGuild));
+                if (guild == null)
+                    return 0;
                 foreach (var user in guild.Users.Values)
                 {
                     if (user.Username == queryUser)

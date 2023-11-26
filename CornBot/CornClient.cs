@@ -43,19 +43,10 @@ namespace CornBot
 
         public CornClient()
         {
-            var useLocalConfig = false;
 #if DEBUG
-            if (useLocalConfig)
-            {
-                Configuration = new ConfigurationBuilder()
-                    .AddJsonFile("cornfig.Local.json", false, false)
-                    .Build();
-
-            } else {
-                Configuration = new ConfigurationBuilder()
-                    .AddJsonFile("cornfig.Development.json", false, false)
-                    .Build();
-            }
+            Configuration = new ConfigurationBuilder()
+                .AddJsonFile("cornfig.Development.json", false, false)
+                .Build();
 
 
 #else
@@ -63,16 +54,10 @@ namespace CornBot
                 .AddJsonFile("cornfig.Production.json", false, false)
                 .Build();
 #endif
-
-            if (useLocalConfig)
-            {
-                BOT_KEY = Configuration["BotKey"];
-            }
-            else
-            {
-                var client = new SecretClient(new Uri(Configuration["KeyVaultUri"]), new DefaultAzureCredential());
-                BOT_KEY = client.GetSecret(Configuration["KeyName"]).Value.Value;
-            }
+            var keyVaultUri = Configuration["KeyVaultUri"] ?? throw new ArgumentNullException("KeyVaultUri");
+            var keyName = Configuration["KeyName"] ?? throw new ArgumentNullException("KeyName");
+            var client = new SecretClient(new Uri(keyVaultUri), new DefaultAzureCredential());
+            BOT_KEY = client.GetSecret(keyName).Value.Value;
 
             _services = new ServiceCollection()
                 .AddSingleton(this)
