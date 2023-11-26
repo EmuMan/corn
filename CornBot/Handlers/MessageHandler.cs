@@ -40,13 +40,11 @@ namespace CornBot.Handlers
 
         private async Task MessageReceivedAsync(SocketMessage messageParam)
         {
-            var message = messageParam as SocketUserMessage;
-            if (message == null) return;
+            if (messageParam is not SocketUserMessage message) return;
 
             if (message.Author.IsBot) return;
 
-            var channel = message.Channel as SocketGuildChannel;
-            if (channel == null) return;
+            if (message.Channel is not SocketGuildChannel channel) return;
 
             var content = message.Content;
             var userInfo = _services.GetRequiredService<GuildTracker>().LookupGuild(channel.Guild).GetUserInfo(message.Author);

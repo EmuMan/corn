@@ -184,6 +184,7 @@ namespace CornBot.Modules
             var random = _services.GetRequiredService<Random>();
             var timestamp = Utility.GetAdjustedTimestamp();
             var numberInDay = userHistory.GetNumberOfCornucopias(userInfo.Guild.GuildId, timestamp.Day);
+            var maxAmount = userInfo.MaxCornucopiaAllowed;
 
             if (numberInDay >= 3)
                 await RespondAsync("what are you trying to do, feed your gambling addiction?");
@@ -191,8 +192,8 @@ namespace CornBot.Modules
                 await RespondAsync($"you can't gamble less than 1 {name}.");
             else if (amount > userInfo.CornCount)
                 await RespondAsync($"you don't have that much {name}.");
-            else if (amount > 100)
-                await RespondAsync($"you can't gamble more than 100 {name} at a time.");
+            else if (amount > maxAmount)
+                await RespondAsync($"you can't gamble more than {maxAmount} {name} at a time.");
             else
             {
                 SlotMachine slotMachine = new(3, amount, random);
@@ -219,6 +220,16 @@ namespace CornBot.Modules
                 }
 
             }
+        }
+
+
+        [EnabledInDm(false)]
+        [SlashCommand("cornucopia-max", "play a game of slots with the highest allowed amount of corn")]
+        public async Task CornucopiaMax()
+        {
+            var economy = _services.GetRequiredService<GuildTracker>();
+            var userInfo = economy.LookupGuild(Context.Guild).GetUserInfo(Context.User);
+            await Cornucopia(userInfo.MaxCornucopiaAllowed);
         }
 
     }

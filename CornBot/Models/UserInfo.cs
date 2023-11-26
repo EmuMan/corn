@@ -66,6 +66,10 @@ namespace CornBot.Models
         }
         private double _cornMultiplier;
 
+        public long MaxCornucopiaAllowed {
+            get => (long)Math.Round(2_000.0 * CornCount / (CornCount + 2_000));
+        }
+
         private readonly IServiceProvider _services;
 
         public UserInfo(GuildInfo guild, ulong userId, long cornCount, bool hasClaimedDaily, double cornMultiplier, DateTime cornMultiplierLastEdit, IServiceProvider services)

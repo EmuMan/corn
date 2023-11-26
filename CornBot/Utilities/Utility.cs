@@ -67,7 +67,7 @@ namespace CornBot.Utilities
             {
                 return displayName;
             }
-        } 
+        }
 
     }
 }

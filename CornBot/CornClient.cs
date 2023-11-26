@@ -36,7 +36,8 @@ namespace CornBot
                              GatewayIntents.GuildMembers |
                              GatewayIntents.GuildEmojis |
                              GatewayIntents.GuildMessages |
-                             GatewayIntents.DirectMessages,
+                             GatewayIntents.DirectMessages |
+                             GatewayIntents.MessageContent,
             AlwaysDownloadUsers = true,
         };
 
