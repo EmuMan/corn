@@ -74,6 +74,12 @@ namespace CornBot.Models
                 await guild.SendMonthlyRecap();
         }
 
+        public async Task AddCornToAll(long amount)
+        {
+            foreach (var guild in Guilds.Values)
+                await guild.AddCornToAll(amount);
+        }
+
         public async Task StartDailyResetLoop()
         {
             var client = _services.GetRequiredService<CornClient>();

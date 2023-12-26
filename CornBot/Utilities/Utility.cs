@@ -19,13 +19,15 @@ namespace CornBot.Utilities
 
         public static Constants.CornEvent GetCurrentEvent()
         {
-            return GetAdjustedTimestamp().Month switch
+            var timestamp = GetAdjustedTimestamp();
+            return timestamp.Month switch
             {
                 1 => Constants.CornEvent.SHARED_SHUCKING,
                 2 => Constants.CornEvent.SHUCKING_STREAKS,
                 3 => Constants.CornEvent.NORMAL_DISTRIBUTION_SHUCKING,
                 6 => Constants.CornEvent.PRIDE,
-                10 => Constants.CornEvent.PUMPKIN,
+                10 => timestamp.Day == 31 ? Constants.CornEvent.PUMPKIN : Constants.CornEvent.NONE,
+                12 => timestamp.Day == 25 ? Constants.CornEvent.CHRISTMAS : Constants.CornEvent.NONE,
                 _ => Constants.CornEvent.NONE,
             };
         }
@@ -37,6 +39,8 @@ namespace CornBot.Utilities
                     return Constants.PRIDE_CORN_EMOJI;
                 case Constants.CornEvent.PUMPKIN:
                     return Constants.PUMPKIN_EMOJI;
+                case Constants.CornEvent.CHRISTMAS:
+                    return Constants.CHRISTMAS_CORN_EMOJI;
                 default:
                     return Constants.CORN_EMOJI;
             }

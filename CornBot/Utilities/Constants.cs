@@ -17,12 +17,14 @@ namespace CornBot.Utilities
             NORMAL_DISTRIBUTION_SHUCKING,
             PRIDE,
             PUMPKIN,
+            CHRISTMAS,
         }
 
         public static readonly string CORN_EMOJI = "\U0001F33D";
         public static readonly string CALENDAR_EMOJI = "\U0001F5D3";
         public static readonly string RAINBOW_EMOJI = "\U0001F308";
         public static readonly string PRIDE_CORN_EMOJI = "<:pridecorn:1113715834439880725>";
+        public static readonly string CHRISTMAS_CORN_EMOJI = "<:christmascorn:1188807440716791849>";
         public static readonly string PUMPKIN_EMOJI = "\U0001f383";
         public static readonly string POPCORN_EMOJI = "\U0001F37F";
         public static readonly string UNICORN_EMOJI = "\U0001F984";

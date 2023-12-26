@@ -72,6 +72,15 @@ namespace CornBot.Models
             return Users.Values.Sum(u => u.CornCount);
         }
 
+        public async Task AddCornToAll(long amount)
+        {
+            foreach (var user in Users.Values)
+            {
+                user.CornCount += amount;
+                await user.Save();
+            }
+        }
+
         public async Task<List<IUser>> GetLeaderboards(int count = 10)
         {
             /*
