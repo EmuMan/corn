@@ -83,12 +83,16 @@ namespace CornBot
             client.Log += Log;
             client.Ready += AsyncOnReady;
 
+            await Log(LogSeverity.Info, "MainAsync", "Initializing handlers...");
             await _services.GetRequiredService<MessageHandler>().Initialize();
             await _services.GetRequiredService<InteractionHandler>().InitializeAsync();
 
+            await Log(LogSeverity.Info, "MainAsync", "Initializing serializer...");
             _services.GetRequiredService<GuildTrackerSerializer>().Initialize("userdata.db");
+            await Log(LogSeverity.Info, "MainAsync", "Loading guilds...");
             await _services.GetRequiredService<GuildTracker>().LoadFromSerializer();
 
+            await Log(LogSeverity.Info, "MainAsync", "Loading fonts...");
             var imageManipulator = _services.GetRequiredService<ImageManipulator>();
             imageManipulator.LoadFont("Assets/Consolas.ttf", 72, FontStyle.Regular);
             imageManipulator.AddFallbackFontFamily("Assets/NotoEmoji-Bold.ttf");
@@ -96,15 +100,23 @@ namespace CornBot
             await Log(new LogMessage(LogSeverity.Info, "MainAsync", $"Loading {notoSansFiles.Length} Noto Sans files..."));
             foreach (var file in notoSansFiles)
                 imageManipulator.AddFallbackFontFamily(file);
+            await Log(new LogMessage(LogSeverity.Info, "MainAsync", "Testing fallback fonts..."));
             imageManipulator.TestAllFallback();
+            await Log(new LogMessage(LogSeverity.Info, "MainAsync", "Finished testing fallback fonts."));
 
+            await Log(new LogMessage(LogSeverity.Info, "MainAsync", "Loading images..."));
             await _services.GetRequiredService<ImageStore>().LoadImages();
 
+            await Log(LogSeverity.Info, "MainAsync", "Logging in...");
             await client.LoginAsync(TokenType.Bot, BOT_KEY);
+            await Log(LogSeverity.Info, "MainAsync", "Starting bot...");
             await client.StartAsync();
 
+
+            await Log(LogSeverity.Info, "MainAsync", "Starting MQTT service...");
             await _services.GetRequiredService<MqttService>().RunAsync();
 
+            await Log(LogSeverity.Info, "MainAsync", "Starting API service...");
             var api = _services.GetRequiredService<CornAPI>();
             await api.RunAsync(); // Does not return
         }
