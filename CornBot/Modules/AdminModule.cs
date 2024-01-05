@@ -31,7 +31,7 @@ namespace CornBot.Modules
         public async Task SetAnnouncementChannel(ITextChannel? channel = null)
         {
             var guildTracker = _services.GetRequiredService<GuildTracker>();
-            var guild = guildTracker.LookupGuild(Context.Guild.Id);
+            var guild = await guildTracker.LookupGuild(Context.Guild.Id);
             if (channel == null)
                 guild.AnnouncementChannel = 0;
             else

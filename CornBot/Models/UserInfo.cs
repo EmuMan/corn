@@ -161,12 +161,7 @@ namespace CornBot.Models
 
         public async Task ProcessSharedShuckingDaily()
         {
-            foreach (var user in Guild.Users.Values)
-            {
-                user.CornCount += 1;
-                if (user != this)
-                    await user.Save();
-            }
+            await Guild.AddCornToAll(1, except: this);
         }
 
         public async Task UpdateForGambling(long investment, long returns)

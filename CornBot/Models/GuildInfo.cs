@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,67 +19,51 @@ namespace CornBot.Models
         public ulong GuildId { get; init; }
         public int Dailies { get; set; }
         public ulong AnnouncementChannel { get; set; }
-        public Dictionary<ulong, UserInfo> Users { get; init; } = new();
 
         private readonly IServiceProvider _services;
 
         public GuildInfo(GuildTracker tracker, ulong guildId, int dailies,
             ulong announcementChannel, IServiceProvider services)
-            : this(tracker, guildId, dailies, announcementChannel, new(), services)
-        {
-        }
-
-        public GuildInfo(GuildTracker tracker, ulong guildId, int dailies, ulong announcementChannel,
-            Dictionary<ulong, UserInfo> users, IServiceProvider services)
         {
             GuildTracker = tracker;
             GuildId = guildId;
             Dailies = dailies;
             AnnouncementChannel = announcementChannel;
-            Users = users;
             _services = services;
         }
 
-        public void AddUserInfo(UserInfo user)
+        public async Task<UserInfo> LookupUser(ulong userId)
         {
-            if (!Users.ContainsKey(user.UserId))
-                Users.Add(user.UserId, user);
-        }
-
-        public UserInfo GetUserInfo(ulong userId)
-        {
-            if (!Users.ContainsKey(userId))
+            var result = await GuildTracker.Serializer.GetUser(this, userId);
+            if (result == null)
             {
-                var newUser = new UserInfo(this, userId, _services);
+                result = new(this, userId, _services);
                 if (Utility.GetCurrentEvent() == Constants.CornEvent.SHARED_SHUCKING)
-                    newUser.CornCount += Math.Min(Dailies, Constants.SHARED_SHUCKING_MAX_BONUS);
-                Users.Add(userId, newUser);
+                    result.CornCount += Math.Min(Dailies, Constants.SHARED_SHUCKING_MAX_BONUS);
+                await GuildTracker.Serializer.AddUser(result);
             }
-            return Users[userId];
+            return result;
         }
 
-        public UserInfo GetUserInfo(IUser user)
+        public async Task<UserInfo> LookupUser(IUser user)
         {
-            return GetUserInfo(user.Id);
+            return await LookupUser(user.Id);
         }
 
-        public bool UserExists(IUser user)
+        public async Task<bool> UserExists(IUser user)
         {
-            return Users.ContainsKey(user.Id);
+            return await GuildTracker.Serializer.UserExists(this, user.Id);
         }
 
-        public long GetTotalCorn()
+        public async Task<long> GetTotalCorn()
         {
-            return Users.Values.Sum(u => u.CornCount);
+            var users = await GuildTracker.Serializer.GetAllUsers(this);
+            return users.Sum(u => u.CornCount);
         }
 
-        public async Task AddCornToAll(long amount)
+        public async Task AddCornToAll(long amount, UserInfo? except = null)
         {
-            foreach (var user in Users.Values)
-            {
-                user.CornCount += amount;
-                await user.Save();
-            }
+            await GuildTracker.Serializer.AddCornToAllUsers(this, amount, except?.UserId ?? 0);
         }
 
         public async Task<List<IUser>> GetLeaderboards(int count = 10)
@@ -96,7 +81,8 @@ namespace CornBot.Models
              * At this point it is not a problem, especially with command limits, but I feel like this just
              * makes it more future-proof. I don't know help
              */
-            var allUsers = new SortedSet<UserInfo>(Users.Values);
+
+            var allUsers = new SortedSet<UserInfo>(await GuildTracker.Serializer.GetAllUsers(this));
             var leaderboard = new List<IUser>(count);
 
             var client = _services.GetRequiredService<DiscordSocketClient>();
@@ -132,7 +118,7 @@ namespace CornBot.Models
             for (int i = 0; i < topUsers.Count; i++)
             {
                 var user = topUsers[i];
-                var userData = GetUserInfo(user);
+                var userData = await LookupUser(user);
                 var cornAmount = userData.CornCount;
 
                 int placement = i + 1;
@@ -156,6 +142,8 @@ namespace CornBot.Models
 
         public async Task SendMonthlyRecap()
         {
+            // TODO: implement
+
             // no announcements channel has been set
             if (AnnouncementChannel == 0) return;
 
@@ -166,6 +154,7 @@ namespace CornBot.Models
             if (channel == null) return;
             if (channel is not ITextChannel textChannel) return;
 
+            var users = await GuildTracker.Serializer.GetAllUsers(this);
             var leaderboards = await GetLeaderboardsString(3, false);
             var serverShucks = GetTotalCorn();
             var globalShucks = GuildTracker.GetTotalCorn();
@@ -179,7 +168,7 @@ namespace CornBot.Models
             UserHistory? worstGambling = null;
             string? worstGamblingName = null;
 
-            foreach (UserInfo user in Users.Values)
+            foreach (UserInfo user in users)
             {
                 var userHistory = await GuildTracker.GetHistory(user.UserId);
 
@@ -280,14 +269,14 @@ namespace CornBot.Models
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(GuildId, Users);
+            return HashCode.Combine(GuildId, GuildTracker.Serializer);
         }
 
         public override bool Equals(object? obj)
         {
             return obj is GuildInfo other &&
                 GuildId == other.GuildId &&
-                Users == other.Users;
+                GuildTracker.Serializer.Equals(other.GuildTracker.Serializer);
         }
 
     }

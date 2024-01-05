@@ -16,68 +16,59 @@ namespace CornBot.Models
     public class GuildTracker
     {
 
-        private readonly GuildTrackerSerializer _serializer;
+        public GuildTrackerSerializer Serializer { get; private set; }
         private readonly IServiceProvider _services;
-
-        public Dictionary<ulong, GuildInfo> Guilds { get; private set; } = new();
 
         public GuildTracker(GuildTrackerSerializer serializer, IServiceProvider services)
         {
-            _serializer = serializer;
+            Serializer = serializer;
             _services = services;
         }
 
-        public GuildTracker(Dictionary<ulong, GuildInfo> guilds, GuildTrackerSerializer serializer, IServiceProvider services)
-            : this(serializer, services)
+        public async Task<GuildInfo> LookupGuild(ulong guildId)
         {
-            Guilds = guilds;
+            var result = await Serializer.GetGuild(this, guildId);
+            if (result == null)
+            {
+                result = new(this, guildId, 0, 0, _services);
+                await Serializer.AddGuild(result);
+            }
+            return result;
         }
 
-        public GuildInfo LookupGuild(ulong guildId)
+        public async Task<GuildInfo> LookupGuild(SocketGuild guild)
         {
-            if (!Guilds.ContainsKey(guildId))
-                Guilds.Add(guildId, new(this, guildId, 0, 0, _services));
-            return Guilds[guildId];
+            return await LookupGuild(guild.Id);
         }
 
-        public GuildInfo LookupGuild(SocketGuild guild)
+        public async Task<long> GetTotalCorn()
         {
-            return LookupGuild(guild.Id);
-        }
-
-        public long GetTotalCorn()
-        {
-            return Guilds.Values.Sum(g => g.GetTotalCorn());
+            // don't think you can do an async sum
+            long sum = 0;
+            foreach (var guild in await Serializer.GetAllGuilds(this))
+                sum += await guild.GetTotalCorn();
+            return sum;
         }
 
         public long GetTotalCorn(IUser user)
         {
-            return Guilds.Values.Where(g => g.UserExists(user)).Sum(g => g.GetUserInfo(user).CornCount);
+            // TODO: implement
         }
 
         public async Task ResetDailies()
         {
-            foreach (var guild in Guilds.Values)
-            {
-                guild.Dailies = 0;
-                foreach (var user in guild.Users.Values)
-                {
-                    user.HasClaimedDaily = false;
-                }
-            }
-            await _serializer.ResetAllDailies();
+            await Serializer.ResetAllDailies();
         }
 
         public async Task SendAllMonthlyRecaps()
         {
-            foreach (var guild in Guilds.Values)
+            foreach (var guild in await Serializer.GetAllGuilds(this))
                 await guild.SendMonthlyRecap();
         }
 
         public async Task AddCornToAll(long amount)
         {
-            foreach (var guild in Guilds.Values)
-                await guild.AddCornToAll(amount);
+            await Serializer.AddCornToAllUsers(amount);
         }
 
         public async Task StartDailyResetLoop()
@@ -96,7 +87,7 @@ namespace CornBot.Models
                 await Task.Delay(timeUntilReset);
 
                 // create a backup (with date info corresponding to the previous day)
-                await _serializer.BackupDatabase($"./backups/{lastReset.Year}/{lastReset.Month}/backup-{lastReset.Day}.db");
+                await Serializer.BackupDatabase($"./backups/{lastReset.Year}/{lastReset.Month}/backup-{lastReset.Day}.db");
 
                 // either reset dailies or the entire leaderboard (depending on whether end of month)
                 if (lastReset.Month == nextReset.Month)
@@ -108,7 +99,7 @@ namespace CornBot.Models
                 {
                     await SendAllMonthlyRecaps();
                     
-                    await _serializer.ClearDatabase();
+                    await Serializer.ClearDatabase();
                     Guilds = new();
                     await client.Log(new LogMessage(LogSeverity.Info, "DailyReset", "Monthly reset performed successfully!"));
                     await client.Log(new LogMessage(LogSeverity.Info, "DailyReset", "CORN HAS BEEN RESET FOR THE MONTH!"));
@@ -120,40 +111,35 @@ namespace CornBot.Models
             }
         }
 
-        public async Task LoadFromSerializer()
-        {
-            Guilds = await _serializer.Load(this);
-        }
-
         public async Task SaveUserInfo(UserInfo user)
         {
-            await _serializer.AddOrUpdateGuild(user.Guild);
-            await _serializer.AddOrUpdateUser(user);
+            await Serializer.AddOrUpdateGuild(user.Guild);
+            await Serializer.AddOrUpdateUser(user);
         }
 
         public async Task SaveGuildInfo(GuildInfo guild)
         {
-            await _serializer.AddOrUpdateGuild(guild);
+            await Serializer.AddOrUpdateGuild(guild);
         }
 
         public async Task LogAction(UserInfo user, UserHistory.ActionType type, long value)
         {
-            await _serializer.LogAction(user, type, value, Utility.GetAdjustedTimestamp());
+            await Serializer.LogAction(user, type, value, Utility.GetAdjustedTimestamp());
         }
 
         public async Task<UserHistory> GetHistory(ulong userId)
         {
-            return await _serializer.GetHistory(userId);
+            return await Serializer.GetHistory(userId);
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Guilds);
+            return HashCode.Combine(Serializer);
         }
 
         public override bool Equals(object? obj)
         {
-            return obj is GuildTracker other && Guilds == other.Guilds;
+            return obj is GuildTracker other && Serializer == other.Serializer;
         }
 
     }

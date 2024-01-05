@@ -33,7 +33,8 @@ namespace CornBot.Modules
             var cornEmoji = Utility.GetCurrentEmoji();
             var name = Utility.GetCurrentName();
             var economy = _services.GetRequiredService<GuildTracker>();
-            var userInfo = economy.LookupGuild(Context.Guild).GetUserInfo(user ?? Context.User);
+            var guild = await economy.LookupGuild(Context.Guild);
+            var userInfo = await guild.LookupUser(user ?? Context.User);
             var stringId = user is null ? "you have" :
                     user is not SocketGuildUser guildUser ? $"{user} has" :
                     $"{guildUser.DisplayName} ({guildUser}) has";
@@ -46,7 +47,8 @@ namespace CornBot.Modules
         {
             var name = Utility.GetCurrentName();
             var economy = _services.GetRequiredService<GuildTracker>();
-            var user = economy.LookupGuild(Context.Guild).GetUserInfo(Context.User);
+            var guild = await economy.LookupGuild(Context.Guild);
+            var user = await guild.LookupUser(Context.User);
 
             if (user.HasClaimedDaily)
                 await RespondAsync("what are you trying to do, spam the daily command?");
@@ -67,13 +69,13 @@ namespace CornBot.Modules
         public async Task Leaderboards()
         {
             var name = Utility.GetCurrentName();
-            var economy = _services.GetRequiredService<GuildTracker>().LookupGuild(Context.Guild);
+            var guild = await _services.GetRequiredService<GuildTracker>().LookupGuild(Context.Guild);
 
             var embed = new EmbedBuilder()
                 .WithColor(Color.Gold)
                 .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
                 .WithTitle($"Top {name} havers:")
-                .WithDescription(await economy.GetLeaderboardsString())
+                .WithDescription(await guild.GetLeaderboardsString())
                 .WithCurrentTimestamp()
                 .Build();
 
@@ -86,7 +88,7 @@ namespace CornBot.Modules
         {
             var name = Utility.GetCurrentName();
             var cornEmoji = Utility.GetCurrentEmoji();
-            long total = _services.GetRequiredService<GuildTracker>().GetTotalCorn();
+            long total = await _services.GetRequiredService<GuildTracker>().GetTotalCorn();
             await RespondAsync($"{cornEmoji} a total of {total:n0} {name} has been shucked across all servers {cornEmoji}");
         }
 
@@ -97,8 +99,8 @@ namespace CornBot.Modules
             var currencyName = Utility.GetCurrentName();
             var economy = _services.GetRequiredService<GuildTracker>();
             user ??= Context.User;
-            var guildInfo = economy.LookupGuild(Context.Guild);
-            var userInfo = guildInfo.GetUserInfo(user);
+            var guildInfo = await economy.LookupGuild(Context.Guild);
+            var userInfo = await guildInfo.LookupUser(user);
 
             var history = await economy.GetHistory(userInfo.UserId);
 
@@ -179,7 +181,8 @@ namespace CornBot.Modules
         {
             var name = Utility.GetCurrentName();
             var economy = _services.GetRequiredService<GuildTracker>();
-            var userInfo = economy.LookupGuild(Context.Guild).GetUserInfo(Context.User);
+            var guildInfo = await economy.LookupGuild(Context.Guild);
+            var userInfo = await guildInfo.LookupUser(Context.User);
             var userHistory = await economy.GetHistory(userInfo.UserId);
             var random = _services.GetRequiredService<Random>();
             var timestamp = Utility.GetAdjustedTimestamp();
@@ -228,7 +231,8 @@ namespace CornBot.Modules
         public async Task CornucopiaMax()
         {
             var economy = _services.GetRequiredService<GuildTracker>();
-            var userInfo = economy.LookupGuild(Context.Guild).GetUserInfo(Context.User);
+            var guildInfo = await economy.LookupGuild(Context.Guild);
+            var userInfo = await guildInfo.LookupUser(Context.User);
             await Cornucopia(userInfo.MaxCornucopiaAllowed);
         }
 
