@@ -331,6 +331,34 @@ namespace CornBot.Serialization
             return history;
         }
 
+        public async Task<List<UserInfo>> GetLeaderboards(GuildInfo guild)
+        {
+            var leaderboard = new List<UserInfo>();
+            using (var command = _connection!.CreateCommand())
+            {
+                command.CommandText = @"
+                    SELECT * FROM users WHERE guild = @guildId ORDER BY corn DESC;";
+                command.Parameters.AddWithValue("@guildId", guild.GuildId);
+
+                var userIterator = await command.ExecuteReaderAsync();
+
+                while (await userIterator.ReadAsync())
+                {
+                    UserInfo user = new(
+                        guild: guild,
+                        userId: (ulong)userIterator.GetInt64(0),
+                        cornCount: userIterator.GetInt64(2),
+                        hasClaimedDaily: userIterator.GetInt32(3) != 0,
+                        cornMultiplier: userIterator.GetDouble(4),
+                        cornMultiplierLastEdit: DateTime.FromBinary(userIterator.GetInt64(5)),
+                        _services
+                    );
+                    leaderboard.Add(user);
+                }
+            }
+            return leaderboard;
+        }
+
         private async Task CreateTablesIfNotExist()
         {
             using (var command = _connection!.CreateCommand())

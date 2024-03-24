@@ -98,39 +98,13 @@ namespace CornBot.Services {
 
         private async Task<List<ShuckerLeaderboardEntry>> GetShuckerLeaderboardAsync(string? queryGuild, int count) {
             if(queryGuild == null) {
-                var userLb = new SortedSet<UserInfo>();
-                foreach(var guild in _services.GetRequiredService<GuildTracker>().Guilds.Values) {
-                    var disLb = await guild.GetLeaderboards(count);
-                    foreach (var user in disLb) {
-                        bool added = false;
-                        var info = guild.GetUserInfo(user);
-                        for (int i = 0; i<userLb.Count; i++) {
-                            var lbEntry = userLb.ElementAt(i);
-                            if (user.Username == lbEntry.Username) {
-                                lbEntry.CornCount += info.CornCount;
-                                lbEntry.HasClaimedDaily = lbEntry.HasClaimedDaily && info.HasClaimedDaily;
-                                added = true;
-                            }
-                        }
-                        if(!added) {
-                            userLb.Add((UserInfo)info.Clone());
-                        }
-                    }
-                }
-
-                int pos = 0;
-                var lb = new List<ShuckerLeaderboardEntry>();
-                foreach(var user in userLb.Reverse()) {
-                    lb.Add(new ShuckerLeaderboardEntry() {
-                        Username = user.Username,
-                        CornCount = user.CornCount,
-                        ShuckStatus = user.HasClaimedDaily,
-                        LeaderboardPosition = pos++
-                    });
-                }
-                return lb;
+                // disabling this for now because exposing all
+                // user data could present a security risk
+                return new();
             } else {
-                var guild = GetGuild(ulong.Parse(queryGuild));
+                var guildId = ulong.Parse(queryGuild);
+                var economy = _services.GetRequiredService<GuildTracker>();
+                var guild = await economy.LookupGuild(guildId);
                 return await GetLeaderboardForGuildAsync(guild, count);
             }
         }
@@ -142,27 +116,16 @@ namespace CornBot.Services {
                 return lb;
             }
             int pos = 0;
-            var disLb = await guild.GetLeaderboards(count);
-            foreach (var user in disLb) {
-                var info = guild.GetUserInfo(user);
+            var leaderboards = await guild.GetLeaderboards(count);
+            foreach (var user in leaderboards) {
                 lb.Add(new ShuckerLeaderboardEntry() {
-                    Username = user.Username,
-                    CornCount = info.CornCount,
-                    ShuckStatus = info.HasClaimedDaily,
+                    Username = user.DiscordUser?.Username ?? "NULL",
+                    CornCount = user.CornCount,
+                    ShuckStatus = user.HasClaimedDaily,
                     LeaderboardPosition = pos++
                 });
             }
             return lb;
-        }
-
-        private GuildInfo? GetGuild(ulong guildId) {
-            var economy = _services.GetRequiredService<GuildTracker>();
-            foreach(var guild in economy.Guilds.Values) {
-                if (guild.GuildId == guildId) {
-                    return guild;
-                }
-            }
-            return null;
         }
 
         private bool GetShuckStatus(string queryUser, string? queryGuild)

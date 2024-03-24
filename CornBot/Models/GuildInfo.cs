@@ -66,40 +66,10 @@ namespace CornBot.Models
             await GuildTracker.Serializer.AddCornToAllUsers(this, amount, except?.UserId ?? 0);
         }
 
-        public async Task<List<IUser>> GetLeaderboards(int count = 10)
+        public async Task<List<UserInfo>> GetLeaderboards(int count = 10)
         {
-            /*
-             * Downloads a list of all users in the guild, then match them to the top 10 users of corn
-             * based on the local corn database.
-             * 
-             * I am not sure this is the best solution. The alternative is to simply request information
-             * for the top 10 (or more if some are unavailable) users in the guild as they come up on the
-             * leaderboards instead of requesting everything and looking them up locally. This would be
-             * much more efficient in terms of bandwidth and memory, but it would have the downside of many
-             * more requests.
-             * 
-             * At this point it is not a problem, especially with command limits, but I feel like this just
-             * makes it more future-proof. I don't know help
-             */
-
-            var allUsers = new SortedSet<UserInfo>(await GuildTracker.Serializer.GetAllUsers(this));
-            var leaderboard = new List<IUser>(count);
-
-            var client = _services.GetRequiredService<DiscordSocketClient>();
-            var guild = client.GetGuild(GuildId);
-            if(guild == null) return new List<IUser>();
-            await guild.DownloadUsersAsync();
-
-            foreach (var userInfo in allUsers.Reverse())
-            {
-                var user = guild.Users.FirstOrDefault(u => u.Id == userInfo.UserId) ?? await client.GetUserAsync(userInfo.UserId);
-                if (user != null)
-                    leaderboard.Add(user);
-                if (leaderboard.Count >= count)
-                    break;
-            }
-
-            return leaderboard;
+            var leaderboard = await GuildTracker.Serializer.GetLeaderboards(this);
+            return leaderboard.Take(count).ToList();
         }
 
         public async Task Save()
@@ -109,32 +79,37 @@ namespace CornBot.Models
 
         public async Task<string> GetLeaderboardsString(int count = 10, bool addSuffix = true)
         {
+            var leaderboards = await GetLeaderboards(count);
+
             var currencyName = Utility.GetCurrentName();
-            var topUsers = await GetLeaderboards(count);
             var response = new StringBuilder();
             long lastCornAmount = 0;
             int lastPlacementNumber = 0;
 
-            for (int i = 0; i < topUsers.Count; i++)
+            for (int i = 0; i < leaderboards.Count; i++)
             {
-                var user = topUsers[i];
-                var userData = await LookupUser(user);
-                var cornAmount = userData.CornCount;
+                var userInfo = leaderboards[i];
 
                 int placement = i + 1;
-                if (cornAmount == lastCornAmount)
+                if (userInfo.CornCount == lastCornAmount)
+                {
                     placement = lastPlacementNumber;
+                }
                 else
+                {
                     lastPlacementNumber = placement;
+                }
 
-                var stringId = Utility.GetUserDisplayString(user, true);
+                var stringId = userInfo.DiscordUser == null ?
+                    userInfo.UserId.ToString() :
+                    Utility.GetUserDisplayString(userInfo.DiscordUser, true);
                 
-                var suffix = (!addSuffix) || userData.HasClaimedDaily ?
+                var suffix = (!addSuffix) || userInfo.HasClaimedDaily ?
                     "" : $" {Constants.CALENDAR_EMOJI}";
 
-                response.AppendLine($"{placement} : {stringId} - {cornAmount} {currencyName}{suffix}");
+                response.AppendLine($"{placement} : {stringId} - {userInfo.CornCount} {currencyName}{suffix}");
 
-                lastCornAmount = cornAmount;
+                lastCornAmount = userInfo.CornCount;
             }
 
             return response.ToString();

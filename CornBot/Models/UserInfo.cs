@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Configuration;
+using Discord.WebSocket;
 
 namespace CornBot.Models
 {
@@ -18,7 +19,7 @@ namespace CornBot.Models
         public GuildInfo Guild { get; init; }
 
         public ulong UserId { get; private set; }
-        public string Username { get; private set; }
+        public IUser? DiscordUser { get; private set; }
         
         private long _cornCount;
 
@@ -27,9 +28,10 @@ namespace CornBot.Models
             get => _cornCount;
             set
             {
-                if (Username != null)
+                if (DiscordUser != null)
                 {
-                    _services.GetRequiredService<MqttService>().SendCornChangedNotificationAsync(Username);
+                    _services.GetRequiredService<MqttService>()
+                        .SendCornChangedNotificationAsync(DiscordUser.Username);
                 }
                 _cornCount = value;
             }
@@ -42,9 +44,10 @@ namespace CornBot.Models
             get => _hasClaimedDaily;
             set
             {
-                if (Username != null)
+                if (DiscordUser != null)
                 {
-                    _services.GetRequiredService<MqttService>().SendShuckStatusChangedNotificationAsync(Username);
+                    _services.GetRequiredService<MqttService>()
+                        .SendShuckStatusChangedNotificationAsync(DiscordUser.Username);
                 }
                 _hasClaimedDaily = value;
             }
@@ -81,11 +84,15 @@ namespace CornBot.Models
             _cornMultiplier = cornMultiplier;
             CornMultiplierLastEdit = cornMultiplierLastEdit;
             _services = services;
-
-            var restClient = new DiscordRestClient();
-            restClient.LoginAsync(TokenType.Bot, CornClient.BOT_KEY).Wait();
-            Username = restClient.GetUserAsync(userId).Result.Username;
-
+            
+            var socketClient = _services.GetRequiredService<DiscordSocketClient>();
+            var socketGuild = socketClient.GetGuild(Guild.GuildId);
+            DiscordUser = socketGuild.GetUser(userId);
+            if (DiscordUser == null)
+            {
+                socketGuild.DownloadUsersAsync().GetAwaiter().GetResult();
+                DiscordUser = socketGuild.GetUser(userId);
+            }
         }
 
         public UserInfo(GuildInfo guild, ulong userId, IServiceProvider services)
