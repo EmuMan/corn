@@ -35,3 +35,18 @@ GET {{CornWebApp_HostAddress}}/users/12345/67890
 Accept: application/json
 
 ###
+
+POST {{CornWebApp_HostAddress}}/daily/12345/67890/complete
+Accept: application/json
+
+###
+
+POST {{CornWebApp_HostAddress}}/daily/12345/67890/reset
+Accept: application/json
+
+###
+
+POST {{CornWebApp_HostAddress}}/daily/reset
+Accept: application/json
+
+###

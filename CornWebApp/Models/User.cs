@@ -3,22 +3,33 @@ using System.Text.Json.Serialization;
 
 namespace CornWebApp.Models
 {
-    public class User
+    public class User(
+        bool isNew,
+        ulong guildId,
+        ulong userId,
+        string? username,
+        string? displayName,
+        long cornCount,
+        bool hasClaimedDaily,
+        double cornMultiplier,
+        ulong cornMultiplierLastEdit)
     {
-        public ulong UserId { get; set; }
-        public ulong GuildId { get; set; }
-        public string? Username { get; set; }
-        public string? DisplayName { get; set; }
-        public long CornCount { get; set; }
-        public bool HasClaimedDaily { get; set; }
-        public double CornMultiplier { get; set; }
-        public ulong CornMultiplierLastEdit { get; set; }
+        public bool IsNew { get; set; } = isNew;
+        public ulong UserId { get; set; } = userId;
+        public ulong GuildId { get; set; } = guildId;
+        public string? Username { get; set; } = username;
+        public string? DisplayName { get; set; } = displayName;
+        public long CornCount { get; set; } = cornCount;
+        public bool HasClaimedDaily { get; set; } = hasClaimedDaily;
+        public double CornMultiplier { get; set; } = cornMultiplier;
+        public ulong CornMultiplierLastEdit { get; set; } = cornMultiplierLastEdit;
 
         [JsonConstructor]
-        public User(ulong guildId, ulong userId)
-            : this(guildId, userId, 0, false, 1.0, 0) { }
+        public User(bool isNew, ulong guildId, ulong userId)
+            : this(isNew, guildId, userId, 0, false, 1.0, 0) { }
 
         public User(
+            bool isNew,
             ulong guildId,
             ulong userId,
             long cornCount,
@@ -26,6 +37,7 @@ namespace CornWebApp.Models
             double cornMultiplier,
             ulong cornMultiplierLastEdit)
             : this(
+                  isNew,
                   guildId,
                   userId,
                   null,
@@ -34,25 +46,5 @@ namespace CornWebApp.Models
                   hasClaimedDaily,
                   cornMultiplier,
                   cornMultiplierLastEdit) { }
-
-        public User(
-            ulong guildId,
-            ulong userId,
-            string? username,
-            string? displayName,
-            long cornCount,
-            bool hasClaimedDaily,
-            double cornMultiplier,
-            ulong CornMultiplierLastEdit)
-        {
-            GuildId = guildId;
-            UserId = userId;
-            Username = username;
-            DisplayName = displayName;
-            CornCount = cornCount;
-            HasClaimedDaily = hasClaimedDaily;
-            CornMultiplier = cornMultiplier;
-            CornMultiplierLastEdit = CornMultiplierLastEdit;
-        }
     }
 }

@@ -94,6 +94,7 @@ namespace CornWebApp.Connections
         private User GetUserFromDataReader(SqlDataReader reader)
         {
             return new User(
+                isNew: false,
                 userId: (ulong)reader.GetInt64(0),
                 guildId: (ulong)reader.GetInt64(1),
                 cornCount: reader.GetInt64(2),
@@ -176,6 +177,49 @@ namespace CornWebApp.Connections
             return null;
         }
 
+        // Note: This method does not add the new user model to the database.
+        // This is by design.
+        async public Task<User> GetOrCreateUserAsync(ulong userId, ulong guildId)
+        {
+            var user = await GetUserAsync(userId, guildId) ?? new User(isNew: true, guildId, userId);
+            return user;
+        }
+
+        async public Task UpdateUserAsync(User user)
+        {
+            var statement = @"
+                UPDATE Users
+                SET CornCount = @CornCount,
+                    HasClaimedDaily = @HasClaimedDaily,
+                    CornMultiplier = @CornMultiplier,
+                    CornMultiplierLastEdit = @CornMultiplierLastEdit
+                WHERE UserId = @UserId AND GuildId = @GuildId;";
+            var parameters = new SqlParameter[]
+            {
+                BuildSqlParameter("@UserId", user.UserId, SqlDbType.BigInt),
+                BuildSqlParameter("@GuildId", user.GuildId, SqlDbType.BigInt),
+                BuildSqlParameter("@CornCount", user.CornCount, SqlDbType.BigInt),
+                BuildSqlParameter("@HasClaimedDaily", user.HasClaimedDaily, SqlDbType.Int),
+                BuildSqlParameter("@CornMultiplier", user.CornMultiplier, SqlDbType.Float),
+                BuildSqlParameter("@CornMultiplierLastEdit", user.CornMultiplierLastEdit, SqlDbType.BigInt)
+            };
+            using var command = new SqlCommand(statement, Connection);
+            command.Parameters.AddRange(parameters);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        public async Task InsertOrUpdateUserAsync(User user)
+        {
+            if (user.IsNew)
+            {
+                await InsertUserAsync(user);
+            }
+            else
+            {
+                await UpdateUserAsync(user);
+            }
+        }
+
         async public Task InsertGuildAsync(Guild guild)
         {
             var statement = @"
@@ -205,12 +249,75 @@ namespace CornWebApp.Connections
             if (await reader.ReadAsync())
             {
                 return new Guild(
+                    isNew: false,
                     guildId: (ulong)reader.GetInt64(0),
                     dailyCount: reader.GetInt32(1),
                     announcementChannel: (ulong)reader.GetInt64(2)
                 );
             }
             return null;
+        }
+
+        // Note: This method does not add the new user model to the database.
+        // This is by design.
+        async public Task<Guild> GetOrCreateGuildAsync(ulong guildId)
+        {
+            var user = await GetGuildAsync(guildId) ?? new Guild(isNew: true, guildId);
+            return user;
+        }
+
+        public async Task UpdateGuildAsync(Guild guild)
+        {
+            var statement = @"
+                UPDATE Guilds
+                SET DailyCount = @DailyCount,
+                    AnnouncementChannel = @AnnouncementChannel
+                WHERE GuildId = @GuildId;";
+            var parameters = new SqlParameter[]
+            {
+                BuildSqlParameter("@GuildId", guild.GuildId, SqlDbType.BigInt),
+                BuildSqlParameter("@DailyCount", guild.DailyCount, SqlDbType.Int),
+                BuildSqlParameter("@AnnouncementChannel", guild.AnnouncementChannel, SqlDbType.BigInt)
+            };
+            using var command = new SqlCommand(statement, Connection);
+            command.Parameters.AddRange(parameters);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        public async Task InsertOrUpdateGuildAsync(Guild guild)
+        {
+            if (guild.IsNew)
+            {
+                await InsertGuildAsync(guild);
+            }
+            else
+            {
+                await UpdateGuildAsync(guild);
+            }
+        }
+
+        async public Task ResetAllDailiesAsync(ulong guildId)
+        {
+            var statement = @"
+                UPDATE Users
+                SET HasClaimedDaily = 0
+                WHERE GuildId = @GuildId;";
+            var parameters = new SqlParameter[]
+            {
+                BuildSqlParameter("@GuildId", guildId, SqlDbType.BigInt)
+            };
+            using var command = new SqlCommand(statement, Connection);
+            command.Parameters.AddRange(parameters);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        async public Task ResetAllDailiesAsync()
+        {
+            var statement = @"
+                UPDATE Users
+                SET HasClaimedDaily = 0;";
+            using var command = new SqlCommand(statement, Connection);
+            await command.ExecuteNonQueryAsync();
         }
     }
 }

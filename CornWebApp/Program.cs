@@ -1,9 +1,12 @@
+using CornWebApp.Utilities;
 using CornWebApp.Connections;
 using CornWebApp.Models;
+using CornWebApp.Models.Responses;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 var appJsonSerializerContext = AppJsonSerializerContext.Default;
+SimpleRNG.SetSeedFromSystemTime();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -113,12 +116,60 @@ guildsApi.MapPost("/", async (HttpContext context) =>
     return Results.Created($"/guilds/{guild.GuildId}", guild);
 });
 
+
+var dailyApi = app.MapGroup("/daily");
+
+dailyApi.MapPost("/{guildId}/{userId}/complete", async (HttpContext context, ulong guildId, ulong userId) =>
+{
+    var user = await database.GetOrCreateUserAsync(userId, guildId);
+    var guild = await database.GetOrCreateGuildAsync(guildId);
+
+    var result = Economy.PerformDaily(user, guild);
+
+    await database.InsertOrUpdateUserAsync(user);
+    await database.InsertOrUpdateGuildAsync(guild);
+
+    return Results.Json(result, appJsonSerializerContext, statusCode: 201);
+});
+
+dailyApi.MapPost("/{guildId}/{userId}/reset", async (HttpContext context, ulong guildId, ulong userId) =>
+{
+    var user = await database.GetUserAsync(userId, guildId);
+
+    if (user is null)
+    {
+        return Results.NotFound();
+    }
+
+    user.HasClaimedDaily = false;
+
+    await database.UpdateUserAsync(user);
+
+    return Results.NoContent();
+});
+
+dailyApi.MapPost("/{guildId}/reset", async (HttpContext context, ulong guildId) =>
+{
+    await database.ResetAllDailiesAsync(guildId);
+
+    return Results.NoContent();
+});
+
+dailyApi.MapPost("/reset", async (HttpContext context) =>
+{
+    await database.ResetAllDailiesAsync();
+
+    return Results.NoContent();
+});
+
+
 app.Run();
 
 
 [JsonSerializable(typeof(User))]
 [JsonSerializable(typeof(List<User>))]
 [JsonSerializable(typeof(Guild))]
+[JsonSerializable(typeof(DailyResponse))]
 internal partial class AppJsonSerializerContext : JsonSerializerContext
 {
 

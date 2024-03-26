@@ -2,21 +2,15 @@
 
 namespace CornWebApp.Models
 {
-    public class Guild
+    public class Guild(bool isNew, ulong guildId, int dailyCount, ulong announcementChannel)
     {
-        public ulong GuildId { get; set; }
-        public int DailyCount { get; set; }
-        public ulong AnnouncementChannel { get; set; }
+        public bool IsNew { get; set; } = isNew;
+        public ulong GuildId { get; set; } = guildId;
+        public int DailyCount { get; set; } = dailyCount;
+        public ulong AnnouncementChannel { get; set; } = announcementChannel;
 
         [JsonConstructor]
-        public Guild(ulong guildId)
-            : this(guildId, 0, 0) { }
-
-        public Guild(ulong guildId, int dailyCount, ulong announcementChannel)
-        {
-            GuildId = guildId;
-            DailyCount = dailyCount;
-            AnnouncementChannel = announcementChannel;
-        }
+        public Guild(bool isNew, ulong guildId)
+            : this(isNew, guildId, 0, 0) { }
     }
 }
