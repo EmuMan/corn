@@ -3,10 +3,12 @@ using CornWebApp.Connections;
 using CornWebApp.Models;
 using CornWebApp.Models.Responses;
 using System.Text.Json.Serialization;
+using CornWebApp.Models.Requests;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 var appJsonSerializerContext = AppJsonSerializerContext.Default;
 SimpleRNG.SetSeedFromSystemTime();
+var random = new Random();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -48,7 +50,7 @@ usersApi.MapGet("/", async (HttpContext context) =>
 
     if (userId.HasValue && guildId.HasValue)
     {
-        var user = await database.GetUserAsync(userId.Value, guildId.Value);
+        var user = await database.GetUserAsync(guildId.Value, userId.Value);
         return Results.Json(new { user }, appJsonSerializerContext);
     }
     else if (userId.HasValue)
@@ -69,7 +71,7 @@ usersApi.MapGet("/", async (HttpContext context) =>
 
 usersApi.MapGet("/{guildId}/{userId}", async (HttpContext context, ulong guildId, ulong userId) =>
 {
-    var user = await database.GetUserAsync(userId, guildId);
+    var user = await database.GetUserAsync(guildId, userId);
     if (user is null)
     {
         return Results.NotFound();
@@ -121,7 +123,7 @@ var dailyApi = app.MapGroup("/daily");
 
 dailyApi.MapPost("/{guildId}/{userId}/complete", async (HttpContext context, ulong guildId, ulong userId) =>
 {
-    var user = await database.GetOrCreateUserAsync(userId, guildId);
+    var user = await database.GetOrCreateUserAsync(guildId, userId);
     var guild = await database.GetOrCreateGuildAsync(guildId);
 
     var result = Economy.PerformDaily(user, guild);
@@ -134,23 +136,28 @@ dailyApi.MapPost("/{guildId}/{userId}/complete", async (HttpContext context, ulo
 
 dailyApi.MapPost("/{guildId}/{userId}/reset", async (HttpContext context, ulong guildId, ulong userId) =>
 {
-    var user = await database.GetUserAsync(userId, guildId);
+    var user = await database.GetUserAsync(guildId, userId);
 
     if (user is null)
     {
         return Results.NotFound();
     }
 
-    user.HasClaimedDaily = false;
-
-    await database.UpdateUserAsync(user);
+    await database.ResetDailyAsync(user);
 
     return Results.NoContent();
 });
 
 dailyApi.MapPost("/{guildId}/reset", async (HttpContext context, ulong guildId) =>
 {
-    await database.ResetAllDailiesAsync(guildId);
+    var guild = await database.GetGuildAsync(guildId);
+
+    if (guild is null)
+    {
+        return Results.NotFound();
+    }
+
+    await database.ResetAllDailiesAsync(guild);
 
     return Results.NoContent();
 });
@@ -163,6 +170,61 @@ dailyApi.MapPost("/reset", async (HttpContext context) =>
 });
 
 
+var cornucopiaApi = app.MapGroup("/cornucopia");
+
+cornucopiaApi.MapPost("/{guildId}/{userId}/perform", async (HttpContext context, ulong guildId, ulong userId) =>
+{
+    var request = await context.Request.ReadFromJsonAsync<CornucopiaRequest>();
+
+    if (request is null)
+    {
+        return Results.BadRequest("Invalid cornucopia request");
+    }
+
+    var user = await database.GetOrCreateUserAsync(guildId, userId);
+    var result = Economy.PerformCornucopia(user, request.Amount, random);
+
+    await database.InsertOrUpdateUserAsync(user);
+
+    return Results.Json(result, appJsonSerializerContext, statusCode: 201);
+});
+
+cornucopiaApi.MapPost("/{guildId}/{userId}/reset", async (HttpContext context, ulong guildId, ulong userId) =>
+{
+    var user = await database.GetUserAsync(guildId, userId);
+
+    if (user is null)
+    {
+        return Results.NotFound();
+    }
+
+    await database.ResetCornucopiaAsync(user);
+
+    return Results.NoContent();
+});
+
+cornucopiaApi.MapPost("/{guildId}/reset", async (HttpContext context, ulong guildId) =>
+{
+    var guild = await database.GetGuildAsync(guildId);
+
+    if (guild is null)
+    {
+        return Results.NotFound();
+    }
+
+    await database.ResetAllCornucopiasAsync(guild);
+
+    return Results.NoContent();
+});
+
+cornucopiaApi.MapPost("/reset", async (HttpContext context) =>
+{
+    await database.ResetAllCornucopiasAsync();
+
+    return Results.NoContent();
+});
+
+
 app.Run();
 
 
@@ -170,6 +232,8 @@ app.Run();
 [JsonSerializable(typeof(List<User>))]
 [JsonSerializable(typeof(Guild))]
 [JsonSerializable(typeof(DailyResponse))]
+[JsonSerializable(typeof(CornucopiaResponse))]
+[JsonSerializable(typeof(CornucopiaRequest))]
 internal partial class AppJsonSerializerContext : JsonSerializerContext
 {
 

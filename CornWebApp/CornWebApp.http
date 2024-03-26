@@ -50,3 +50,23 @@ POST {{CornWebApp_HostAddress}}/daily/reset
 Accept: application/json
 
 ###
+
+POST {{CornWebApp_HostAddress}}/cornucopia/12345/67890/perform
+Accept: application/json
+Content-Type: application/json
+
+{
+    "amount": 10
+}
+
+###
+
+POST {{CornWebApp_HostAddress}}/cornucopia/12345/67890/reset
+Accept: application/json
+
+###
+
+POST {{CornWebApp_HostAddress}}/cornucopia/reset
+Accept: application/json
+
+###

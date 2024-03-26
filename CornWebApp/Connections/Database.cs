@@ -47,6 +47,7 @@ namespace CornWebApp.Connections
                             GuildId BIGINT NOT NULL,
                             CornCount BIGINT NOT NULL,
                             HasClaimedDaily INT NOT NULL,
+                            CornucopiaCount INT NOT NULL,
                             CornMultiplier FLOAT NOT NULL,
                             CornMultiplierLastEdit BIGINT NOT NULL,
                             CONSTRAINT PK_Users PRIMARY KEY (UserId, GuildId),
@@ -99,8 +100,9 @@ namespace CornWebApp.Connections
                 guildId: (ulong)reader.GetInt64(1),
                 cornCount: reader.GetInt64(2),
                 hasClaimedDaily: reader.GetInt32(3) == 0 ? false : true,
-                cornMultiplier: reader.GetDouble(4),
-                cornMultiplierLastEdit: (ulong)reader.GetInt64(5)
+                cornucopiaCount: reader.GetInt32(4),
+                cornMultiplier: reader.GetDouble(5),
+                cornMultiplierLastEdit: (ulong)reader.GetInt64(6)
             );
         }
 
@@ -159,15 +161,15 @@ namespace CornWebApp.Connections
             return users;
         }
 
-        async public Task<User?> GetUserAsync(ulong userId, ulong guildId)
+        async public Task<User?> GetUserAsync(ulong guildId, ulong userId)
         {
             var statement = @"
                 SELECT * FROM Users
-                WHERE UserId = @UserId AND GuildId = @GuildId";
+                WHERE GuildId = @GuildId AND UserId = @UserId";
             var parameters = new SqlParameter[]
             {
-                BuildSqlParameter("@UserId", userId, SqlDbType.BigInt),
-                BuildSqlParameter("@GuildId", guildId, SqlDbType.BigInt)
+                BuildSqlParameter("@GuildId", guildId, SqlDbType.BigInt),
+                BuildSqlParameter("@UserId", userId, SqlDbType.BigInt)
             };
             using var reader = await GetDataReaderAsync(statement, parameters);
             if (await reader.ReadAsync())
@@ -179,9 +181,9 @@ namespace CornWebApp.Connections
 
         // Note: This method does not add the new user model to the database.
         // This is by design.
-        async public Task<User> GetOrCreateUserAsync(ulong userId, ulong guildId)
+        async public Task<User> GetOrCreateUserAsync(ulong guildId, ulong userId)
         {
-            var user = await GetUserAsync(userId, guildId) ?? new User(isNew: true, guildId, userId);
+            var user = await GetUserAsync(guildId, userId) ?? new User(isNew: true, guildId, userId);
             return user;
         }
 
@@ -296,15 +298,34 @@ namespace CornWebApp.Connections
             }
         }
 
-        async public Task ResetAllDailiesAsync(ulong guildId)
+        async public Task ResetDailyAsync(User user)
         {
             var statement = @"
                 UPDATE Users
                 SET HasClaimedDaily = 0
+                WHERE GuildId = @GuildId AND UserId = @UserId;";
+            var parameters = new SqlParameter[]
+            {
+                BuildSqlParameter("@GuildId", user.GuildId, SqlDbType.BigInt),
+                BuildSqlParameter("@UserId", user.UserId, SqlDbType.BigInt)
+            };
+            using var command = new SqlCommand(statement, Connection);
+            command.Parameters.AddRange(parameters);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        async public Task ResetAllDailiesAsync(Guild guild)
+        {
+            var statement = @"
+                UPDATE Users
+                SET HasClaimedDaily = 0
+                WHERE GuildId = @GuildId;
+                UPDATE Guilds
+                SET DailyCount = 0
                 WHERE GuildId = @GuildId;";
             var parameters = new SqlParameter[]
             {
-                BuildSqlParameter("@GuildId", guildId, SqlDbType.BigInt)
+                BuildSqlParameter("@GuildId", guild.GuildId, SqlDbType.BigInt)
             };
             using var command = new SqlCommand(statement, Connection);
             command.Parameters.AddRange(parameters);
@@ -315,7 +336,49 @@ namespace CornWebApp.Connections
         {
             var statement = @"
                 UPDATE Users
-                SET HasClaimedDaily = 0;";
+                SET HasClaimedDaily = 0;
+                UPDATE Guilds
+                SET DailyCount = 0;";
+            using var command = new SqlCommand(statement, Connection);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        async public Task ResetCornucopiaAsync(User user)
+        {
+            var statement = @"
+                UPDATE Users
+                SET CornucopiaCount = 0
+                WHERE GuildId = @GuildId AND UserId = @UserId;";
+            var parameters = new SqlParameter[]
+            {
+                BuildSqlParameter("@GuildId", user.GuildId, SqlDbType.BigInt),
+                BuildSqlParameter("@UserId", user.UserId, SqlDbType.BigInt)
+            };
+            using var command = new SqlCommand(statement, Connection);
+            command.Parameters.AddRange(parameters);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        async public Task ResetAllCornucopiasAsync(Guild guild)
+        {
+            var statement = @"
+                UPDATE Users
+                SET CornucopiaCount = 0
+                WHERE GuildId = @GuildId;";
+            var parameters = new SqlParameter[]
+            {
+                BuildSqlParameter("@GuildId", guild.GuildId, SqlDbType.BigInt)
+            };
+            using var command = new SqlCommand(statement, Connection);
+            command.Parameters.AddRange(parameters);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        async public Task ResetAllCornucopiasAsync()
+        {
+            var statement = @"
+                UPDATE Users
+                SET CornucopiaCount = 0;";
             using var command = new SqlCommand(statement, Connection);
             await command.ExecuteNonQueryAsync();
         }
