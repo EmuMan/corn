@@ -12,10 +12,10 @@ namespace CornWebApp.Utilities
 
         public enum BoxValue
         {
-            NONE,
-            CORN,
-            POPCORN,
-            UNICORN,
+            None,
+            Corn,
+            Popcorn,
+            Unicorn,
         }
 
         public int Size { get; private set; }
@@ -45,15 +45,15 @@ namespace CornWebApp.Utilities
                     switch (random.Next(0, 5))
                     {
                         case 0:
-                            grid[y][x] = BoxValue.CORN;
+                            grid[y][x] = BoxValue.Corn;
                             break;
                         case 1:
                         case 2:
-                            grid[y][x] = BoxValue.UNICORN;
+                            grid[y][x] = BoxValue.Unicorn;
                             break;
                         case 3:
                         case 4:
-                            grid[y][x] = BoxValue.POPCORN;
+                            grid[y][x] = BoxValue.Popcorn;
                             break;
                     }
                 }
@@ -70,9 +70,9 @@ namespace CornWebApp.Utilities
                 {
                     sb.Append(grid[row][col] switch
                     {
-                        BoxValue.CORN => "C",
-                        BoxValue.POPCORN => "P",
-                        BoxValue.UNICORN => "U",
+                        BoxValue.Corn => "C",
+                        BoxValue.Popcorn => "P",
+                        BoxValue.Unicorn => "U",
                         _ => "X",
                     });
                 }
@@ -85,9 +85,9 @@ namespace CornWebApp.Utilities
         {
             Dictionary<BoxValue, int> matches = new()
             {
-                [BoxValue.CORN] = 0,
-                [BoxValue.UNICORN] = 0,
-                [BoxValue.POPCORN] = 0
+                [BoxValue.Corn] = 0,
+                [BoxValue.Popcorn] = 0,
+                [BoxValue.Unicorn] = 0
             };
 
             // check rows
@@ -131,9 +131,9 @@ namespace CornWebApp.Utilities
             double multiplier = 0.0;
             var matches = GetMatches();
 
-            multiplier += matches[BoxValue.CORN] * 3.0;
-            multiplier += matches[BoxValue.UNICORN];
-            multiplier += matches[BoxValue.POPCORN];
+            multiplier += matches[BoxValue.Corn] * 3.0;
+            multiplier += matches[BoxValue.Unicorn];
+            multiplier += matches[BoxValue.Popcorn];
 
             multiplier = 0.2 + multiplier * 0.9;
 

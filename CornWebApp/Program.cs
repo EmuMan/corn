@@ -1,5 +1,5 @@
 using CornWebApp.Utilities;
-using CornWebApp.Connections;
+using CornWebApp.Database;
 using CornWebApp.Models;
 using CornWebApp.Models.Responses;
 using System.Text.Json.Serialization;
@@ -17,7 +17,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 var app = builder.Build();
 var connString = "Server=tcp:cornbot.database.windows.net,1433;Initial Catalog=corndata;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=\"Active Directory Default\";";
-var database = new Database(connString);
+var database = new SqlDatabase(connString);
 await database.CreateTablesIfNotExistAsync();
 
 
@@ -50,17 +50,17 @@ usersApi.MapGet("/", async (HttpContext context) =>
 
     if (userId.HasValue && guildId.HasValue)
     {
-        var user = await database.GetUserAsync(guildId.Value, userId.Value);
+        var user = await database.Users.GetAsync(guildId.Value, userId.Value);
         return Results.Json(new { user }, appJsonSerializerContext);
     }
     else if (userId.HasValue)
     {
-        var users = await database.GetUsersFromUserIdAsync(userId.Value);
+        var users = await database.Users.GetFromUserIdAsync(userId.Value);
         return Results.Json(users, appJsonSerializerContext);
     }
     else if (guildId.HasValue)
     {
-        var users = await database.GetUsersFromGuildIdAsync(guildId.Value);
+        var users = await database.Users.GetFromGuildIdAsync(guildId.Value);
         return Results.Json(users, appJsonSerializerContext);
     }
     else
@@ -71,7 +71,7 @@ usersApi.MapGet("/", async (HttpContext context) =>
 
 usersApi.MapGet("/{guildId}/{userId}", async (HttpContext context, ulong guildId, ulong userId) =>
 {
-    var user = await database.GetUserAsync(guildId, userId);
+    var user = await database.Users.GetAsync(guildId, userId);
     if (user is null)
     {
         return Results.NotFound();
@@ -89,7 +89,7 @@ usersApi.MapPost("/", async (HttpContext context) =>
 
     Console.WriteLine(user.CornMultiplierLastEdit);
 
-    await database.InsertUserAsync(user);
+    await database.Users.InsertAsync(user);
     return Results.Created($"/users/{user.GuildId}/{user.UserId}", user);
 });
 
@@ -98,7 +98,7 @@ var guildsApi = app.MapGroup("/guilds");
 
 guildsApi.MapGet("/{guildId}", async (HttpContext context, ulong guildId) =>
 {
-    var guild = await database.GetGuildAsync(guildId);
+    var guild = await database.Guilds.GetAsync(guildId);
     if (guild is null)
     {
         return Results.NotFound();
@@ -114,7 +114,7 @@ guildsApi.MapPost("/", async (HttpContext context) =>
         return Results.BadRequest("Invalid guild");
     }
 
-    await database.InsertGuildAsync(guild);
+    await database.Guilds.InsertAsync(guild);
     return Results.Created($"/guilds/{guild.GuildId}", guild);
 });
 
@@ -123,41 +123,41 @@ var dailyApi = app.MapGroup("/daily");
 
 dailyApi.MapPost("/{guildId}/{userId}/complete", async (HttpContext context, ulong guildId, ulong userId) =>
 {
-    var user = await database.GetOrCreateUserAsync(guildId, userId);
-    var guild = await database.GetOrCreateGuildAsync(guildId);
+    var user = await database.Users.GetOrCreateAsync(guildId, userId);
+    var guild = await database.Guilds.GetOrCreateAsync(guildId);
 
     var result = Economy.PerformDaily(user, guild);
 
-    await database.InsertOrUpdateUserAsync(user);
-    await database.InsertOrUpdateGuildAsync(guild);
+    await database.Users.InsertOrUpdateAsync(user);
+    await database.Guilds.InsertOrUpdateAsync(guild);
 
     return Results.Json(result, appJsonSerializerContext, statusCode: 201);
 });
 
 dailyApi.MapPost("/{guildId}/{userId}/reset", async (HttpContext context, ulong guildId, ulong userId) =>
 {
-    var user = await database.GetUserAsync(guildId, userId);
+    var user = await database.Users.GetAsync(guildId, userId);
 
     if (user is null)
     {
         return Results.NotFound();
     }
 
-    await database.ResetDailyAsync(user);
+    await database.Users.ResetDailyAsync(user);
 
     return Results.NoContent();
 });
 
 dailyApi.MapPost("/{guildId}/reset", async (HttpContext context, ulong guildId) =>
 {
-    var guild = await database.GetGuildAsync(guildId);
+    var guild = await database.Guilds.GetAsync(guildId);
 
     if (guild is null)
     {
         return Results.NotFound();
     }
 
-    await database.ResetAllDailiesAsync(guild);
+    await database.Guilds.ResetAllDailiesAsync(guild);
 
     return Results.NoContent();
 });
@@ -181,38 +181,38 @@ cornucopiaApi.MapPost("/{guildId}/{userId}/perform", async (HttpContext context,
         return Results.BadRequest("Invalid cornucopia request");
     }
 
-    var user = await database.GetOrCreateUserAsync(guildId, userId);
+    var user = await database.Users.GetOrCreateAsync(guildId, userId);
     var result = Economy.PerformCornucopia(user, request.Amount, random);
 
-    await database.InsertOrUpdateUserAsync(user);
+    await database.Users.InsertOrUpdateAsync(user);
 
     return Results.Json(result, appJsonSerializerContext, statusCode: 201);
 });
 
 cornucopiaApi.MapPost("/{guildId}/{userId}/reset", async (HttpContext context, ulong guildId, ulong userId) =>
 {
-    var user = await database.GetUserAsync(guildId, userId);
+    var user = await database.Users.GetAsync(guildId, userId);
 
     if (user is null)
     {
         return Results.NotFound();
     }
 
-    await database.ResetCornucopiaAsync(user);
+    await database.Users.ResetCornucopiaAsync(user);
 
     return Results.NoContent();
 });
 
 cornucopiaApi.MapPost("/{guildId}/reset", async (HttpContext context, ulong guildId) =>
 {
-    var guild = await database.GetGuildAsync(guildId);
+    var guild = await database.Guilds.GetAsync(guildId);
 
     if (guild is null)
     {
         return Results.NotFound();
     }
 
-    await database.ResetAllCornucopiasAsync(guild);
+    await database.Guilds.ResetAllCornucopiasAsync(guild);
 
     return Results.NoContent();
 });
