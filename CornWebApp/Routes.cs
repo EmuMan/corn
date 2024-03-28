@@ -18,6 +18,7 @@ namespace CornWebApp
             SetupGuildRoutes();
             SetupDailyRoutes();
             SetupCornucopiaRoutes();
+            SetupHistoryRoutes();
         }
 
         private void SetupUserRoutes()
@@ -229,6 +230,18 @@ namespace CornWebApp
                 await Database.ResetAllCornucopiasAsync();
 
                 return Results.NoContent();
+            });
+        }
+
+        private void SetupHistoryRoutes()
+        {
+            var historyApi = App.MapGroup("/history");
+
+            historyApi.MapGet("/{userId}", async (HttpContext context, ulong userId) =>
+            {
+                var entries = await Database.History.GetFromUserIdAsync(userId);
+                var history = new HistorySummary(entries);
+                return Results.Json(history, JsonSerializerContext);
             });
         }
     }

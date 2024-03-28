@@ -8,7 +8,7 @@ namespace CornWebApp.Models
         ulong guildId,
         HistoryEntry.ActionType actionType,
         long value,
-        DateTime timestamp)
+        DateTimeOffset timestamp)
     {
         public enum ActionType
         {
@@ -26,6 +26,6 @@ namespace CornWebApp.Models
         public ulong GuildId { get; set; } = guildId;
         public ActionType Type { get; set; } = actionType;
         public long Value { get; set; } = value;
-        public DateTime Timestamp { get; set; } = timestamp;
+        public DateTimeOffset Timestamp { get; set; } = timestamp;
     }
 }

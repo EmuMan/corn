@@ -18,7 +18,7 @@ namespace CornWebApp.Database
                             UserId BIGINT NOT NULL,
                             Type INT NOT NULL,
                             Value BIGINT NOT NULL,
-                            Timestamp DATETIME NOT NULL,
+                            Timestamp VARCHAR(40) NOT NULL,
                             CONSTRAINT PK_History PRIMARY KEY (Id),
                             CONSTRAINT FK_History_Users FOREIGN KEY (UserId, GuildId) REFERENCES Users(UserId, GuildId)
                         );
@@ -34,7 +34,7 @@ namespace CornWebApp.Database
                 userId: (ulong)reader.GetInt64(2),
                 actionType: (HistoryEntry.ActionType)reader.GetInt32(3),
                 value: reader.GetInt64(4),
-                timestamp: reader.GetDateTime(5)
+                timestamp: DateTimeOffset.Parse(reader.GetString(5))
             );
         }
 
@@ -49,7 +49,7 @@ namespace CornWebApp.Database
                 BuildSqlParameter("@UserId", entry.UserId, SqlDbType.BigInt),
                 BuildSqlParameter("@Type", (int)entry.Type, SqlDbType.Int),
                 BuildSqlParameter("@Value", entry.Value, SqlDbType.BigInt),
-                BuildSqlParameter("@Timestamp", entry.Timestamp, SqlDbType.DateTime)
+                BuildSqlParameter("@Timestamp", entry.Timestamp.ToString("o"), SqlDbType.VarChar)
             };
             using var command = new SqlCommand(statement, Connection);
             command.Parameters.AddRange(parameters);
@@ -140,7 +140,7 @@ namespace CornWebApp.Database
                 BuildSqlParameter("@UserId", historyEntry.UserId, SqlDbType.BigInt),
                 BuildSqlParameter("@Type", (int)historyEntry.Type, SqlDbType.Int),
                 BuildSqlParameter("@Value", historyEntry.Value, SqlDbType.BigInt),
-                BuildSqlParameter("@Timestamp", historyEntry.Timestamp, SqlDbType.DateTime),
+                BuildSqlParameter("@Timestamp", historyEntry.Timestamp.ToString("o"), SqlDbType.VarChar),
                 BuildSqlParameter("@Id", historyEntry.Id, SqlDbType.Int)
             };
             using var command = new SqlCommand(statement, Connection);
