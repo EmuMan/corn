@@ -15,8 +15,8 @@ namespace CornWebApp.Database
         {
             Connection = new SqlConnection(connectionString);
 
-            Users = new UserTable(Connection);
             Guilds = new GuildTable(Connection);
+            Users = new UserTable(Connection);
             History = new HistoryTable(Connection);
 
             Connection.Open();
@@ -29,8 +29,8 @@ namespace CornWebApp.Database
 
         public async Task CreateTablesIfNotExistAsync()
         {
-            await Users.CreateTableIfNotExistAsync();
             await Guilds.CreateTableIfNotExistAsync();
+            await Users.CreateTableIfNotExistAsync();
             await History.CreateTableIfNotExistAsync();
         }
 

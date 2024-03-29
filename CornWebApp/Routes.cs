@@ -19,6 +19,7 @@ namespace CornWebApp
             SetupDailyRoutes();
             SetupCornucopiaRoutes();
             SetupHistoryRoutes();
+            SetupLeaderboardRoutes();
         }
 
         private void SetupUserRoutes()
@@ -89,7 +90,7 @@ namespace CornWebApp
                     return Results.BadRequest("Invalid user");
                 }
 
-                Console.WriteLine(user.CornMultiplierLastEdit);
+                await Database.Guilds.CreateIfNotExists(user.GuildId);
 
                 await Database.Users.InsertAsync(user);
                 return Results.Created($"/users/{user.GuildId}/{user.UserId}", user);
@@ -129,13 +130,13 @@ namespace CornWebApp
 
             dailyApi.MapPost("/{guildId}/{userId}/complete", async (HttpContext context, ulong guildId, ulong userId) =>
             {
-                var user = await Database.Users.GetOrCreateAsync(guildId, userId);
                 var guild = await Database.Guilds.GetOrCreateAsync(guildId);
+                var user = await Database.Users.GetOrCreateAsync(guildId, userId);
 
                 var result = Economy.PerformDaily(user, guild);
 
-                await Database.Users.InsertOrUpdateAsync(user);
                 await Database.Guilds.InsertOrUpdateAsync(guild);
+                await Database.Users.InsertOrUpdateAsync(user);
 
                 return Results.Json(result, JsonSerializerContext, statusCode: 201);
             });
@@ -189,9 +190,10 @@ namespace CornWebApp
                     return Results.BadRequest("Invalid cornucopia request");
                 }
 
+                await Database.Guilds.CreateIfNotExists(guildId);
+
                 var user = await Database.Users.GetOrCreateAsync(guildId, userId);
                 var result = Economy.PerformCornucopia(user, request.Amount, Random);
-
                 await Database.Users.InsertOrUpdateAsync(user);
 
                 return Results.Json(result, JsonSerializerContext, statusCode: 201);
@@ -242,6 +244,41 @@ namespace CornWebApp
                 var entries = await Database.History.GetFromUserIdAsync(userId);
                 var history = new HistorySummary(entries);
                 return Results.Json(history, JsonSerializerContext);
+            });
+        }
+
+        private void SetupLeaderboardRoutes()
+        {
+            var leaderboardApi = App.MapGroup("/leaderboard");
+
+            leaderboardApi.MapGet("/{guildId}", async (HttpContext context, ulong guildId) =>
+            {
+                var pLimit = context.Request.Query["limit"];
+                if (!int.TryParse(pLimit, out var limit))
+                {
+                    limit = 10;
+                }
+
+                var guild = await Database.Guilds.GetAsync(guildId);
+                if (guild is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var leaderboard = await Database.Users.GetLeaderboardsAsync(guild, limit);
+                return Results.Json(leaderboard, JsonSerializerContext);
+            });
+
+            leaderboardApi.MapGet("/", async (HttpContext context) =>
+            {
+                var pLimit = context.Request.Query["limit"];
+                if (!int.TryParse(pLimit, out var limit))
+                {
+                    limit = 10;
+                }
+
+                var leaderboard = await Database.Users.GetLeaderboardsAsync(limit);
+                return Results.Json(leaderboard, JsonSerializerContext);
             });
         }
     }

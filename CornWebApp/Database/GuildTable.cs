@@ -130,6 +130,15 @@ namespace CornWebApp.Database
             await command.ExecuteNonQueryAsync();
         }
 
+        public async Task CreateIfNotExists(ulong guildId)
+        {
+            var guild = await GetAsync(guildId);
+            if (guild == null)
+            {
+                await InsertAsync(new Guild(isNew: true, guildId));
+            }
+        }
+
         public async Task ResetAllDailiesAsync(Guild guild)
         {
             var statement = @"

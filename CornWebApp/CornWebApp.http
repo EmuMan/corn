@@ -70,3 +70,8 @@ POST {{CornWebApp_HostAddress}}/cornucopia/reset
 Accept: application/json
 
 ###
+
+GET {{CornWebApp_HostAddress}}/leaderboard/12345
+Accept: application/json
+
+###

@@ -44,14 +44,15 @@ namespace CornWebApp.Database
         public override async Task InsertAsync(User user)
         {
             var statement = @"
-                INSERT INTO Users (GuildId, UserId, CornCount, HasClaimedDaily, CornMultiplier, CornMultiplierLastEdit)
-                VALUES (@GuildId, @UserId, @CornCount, @HasClaimedDaily, @CornMultiplier, @CornMultiplierLastEdit);";
+                INSERT INTO Users (GuildId, UserId, CornCount, HasClaimedDaily, CornucopiaCount, CornMultiplier, CornMultiplierLastEdit)
+                VALUES (@GuildId, @UserId, @CornCount, @HasClaimedDaily, @CornucopiaCount, @CornMultiplier, @CornMultiplierLastEdit);";
             var parameters = new SqlParameter[]
             {
                 BuildSqlParameter("@GuildId", user.GuildId, SqlDbType.BigInt),
                 BuildSqlParameter("@UserId", user.UserId, SqlDbType.BigInt),
                 BuildSqlParameter("@CornCount", user.CornCount, SqlDbType.BigInt),
                 BuildSqlParameter("@HasClaimedDaily", user.HasClaimedDaily, SqlDbType.Int),
+                BuildSqlParameter("@CornucopiaCount", user.CornucopiaCount, SqlDbType.Int),
                 BuildSqlParameter("@CornMultiplier", user.CornMultiplier, SqlDbType.Float),
                 BuildSqlParameter("@CornMultiplierLastEdit", user.CornMultiplierLastEdit, SqlDbType.BigInt)
             };
@@ -141,6 +142,7 @@ namespace CornWebApp.Database
                 UPDATE Users
                 SET CornCount = @CornCount,
                     HasClaimedDaily = @HasClaimedDaily,
+                    CornucopiaCount = @CornucopiaCount,
                     CornMultiplier = @CornMultiplier,
                     CornMultiplierLastEdit = @CornMultiplierLastEdit
                 WHERE GuildId = @GuildId AND UserId = @UserId;";
@@ -150,6 +152,7 @@ namespace CornWebApp.Database
                 BuildSqlParameter("@UserId", user.UserId, SqlDbType.BigInt),
                 BuildSqlParameter("@CornCount", user.CornCount, SqlDbType.BigInt),
                 BuildSqlParameter("@HasClaimedDaily", user.HasClaimedDaily, SqlDbType.Int),
+                BuildSqlParameter("@CornucopiaCount", user.CornucopiaCount, SqlDbType.Int),
                 BuildSqlParameter("@CornMultiplier", user.CornMultiplier, SqlDbType.Float),
                 BuildSqlParameter("@CornMultiplierLastEdit", user.CornMultiplierLastEdit, SqlDbType.BigInt)
             };
@@ -215,6 +218,46 @@ namespace CornWebApp.Database
             using var command = new SqlCommand(statement, Connection);
             command.Parameters.AddRange(parameters);
             await command.ExecuteNonQueryAsync();
+        }
+
+        public async Task<List<User>> GetLeaderboardsAsync(Guild guild, int limit)
+        {
+            var statement = @"
+                SELECT TOP (@Limit) *
+                FROM Users
+                WHERE GuildId = @GuildId
+                ORDER BY CornCount DESC;";
+            var parameters = new SqlParameter[]
+            {
+                BuildSqlParameter("@Limit", limit, SqlDbType.Int),
+                BuildSqlParameter("@GuildId", guild.GuildId, SqlDbType.BigInt)
+            };
+            using var reader = await GetDataReaderAsync(statement, parameters);
+            var users = new List<User>();
+            while (await reader.ReadAsync())
+            {
+                users.Add(GetUserFromDataReader(reader));
+            }
+            return users;
+        }
+
+        public async Task <List<User>> GetLeaderboardsAsync(int limit)
+        {
+            var statement = @"
+                SELECT TOP (@Limit) *
+                FROM Users
+                ORDER BY CornCount DESC;";
+            var parameters = new SqlParameter[]
+            {
+                BuildSqlParameter("@Limit", limit, SqlDbType.Int)
+            };
+            using var reader = await GetDataReaderAsync(statement, parameters);
+            var users = new List<User>();
+            while (await reader.ReadAsync())
+            {
+                users.Add(GetUserFromDataReader(reader));
+            }
+            return users;
         }
     }
 }
