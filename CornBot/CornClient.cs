@@ -10,10 +10,7 @@ using Azure.Identity;
 using System.Diagnostics;
 using CornBot.Handlers;
 using CornBot.Models;
-using CornBot.Serialization;
-using CornBot.Services;
 using CornBot.Utilities;
-using SQLitePCL;
 
 // cornfig.Local.json format
 // {
@@ -24,11 +21,10 @@ namespace CornBot
 {
     public class CornClient
     {
-        public static string BOT_KEY = "";
-
-        public static IConfiguration? Configuration;
+        public static IConfiguration? Configuration { get; private set; }
 
         private readonly IServiceProvider _services;
+        private readonly string _botKey;
 
         private readonly DiscordSocketConfig _socketConfig = new()
         {
@@ -45,10 +41,8 @@ namespace CornBot
         {
 #if DEBUG
             Configuration = new ConfigurationBuilder()
-                .AddJsonFile("cornfig.Development.json", false, false)
+                .AddJsonFile("cornfig.json", false, false)
                 .Build();
-
-
 #else
             Configuration = new ConfigurationBuilder()
                 .AddJsonFile("cornfig.Production.json", false, false)
@@ -57,22 +51,21 @@ namespace CornBot
             var keyVaultUri = Configuration["KeyVaultUri"] ?? throw new ArgumentNullException("KeyVaultUri");
             var keyName = Configuration["KeyName"] ?? throw new ArgumentNullException("KeyName");
             var client = new SecretClient(new Uri(keyVaultUri), new DefaultAzureCredential());
-            BOT_KEY = client.GetSecret(keyName).Value.Value;
+            _botKey = client.GetSecret(keyName).Value.Value;
 
             _services = new ServiceCollection()
                 .AddSingleton(this)
                 .AddSingleton(_socketConfig)
                 .AddSingleton(new Random((int)DateTime.UtcNow.Ticks))
-                .AddSingleton<GuildTrackerSerializer>()
-                .AddSingleton<GuildTracker>()
                 .AddSingleton<DiscordSocketClient>()
                 .AddSingleton<InteractionService>()
                 .AddSingleton<MessageHandler>()
                 .AddSingleton<InteractionHandler>()
                 .AddSingleton<ImageManipulator>()
                 .AddSingleton<ImageStore>()
+                .AddSingleton<HttpClient>()
+                .AddSingleton<AppJsonSerializerContext>()
                 .AddSingleton<CornAPI>()
-                .AddSingleton<MqttService>()
                 .BuildServiceProvider();
         }
 
@@ -86,11 +79,6 @@ namespace CornBot
             await Log(LogSeverity.Info, "MainAsync", "Initializing handlers...");
             await _services.GetRequiredService<MessageHandler>().Initialize();
             await _services.GetRequiredService<InteractionHandler>().InitializeAsync();
-
-            await Log(LogSeverity.Info, "MainAsync", "Initializing serializer...");
-            _services.GetRequiredService<GuildTrackerSerializer>().Initialize("userdata.db");
-            await Log(LogSeverity.Info, "MainAsync", "Loading guilds...");
-            await _services.GetRequiredService<GuildTracker>().LoadFromSerializer();
 
             await Log(LogSeverity.Info, "MainAsync", "Loading fonts...");
             var imageManipulator = _services.GetRequiredService<ImageManipulator>();
@@ -107,18 +95,16 @@ namespace CornBot
             await Log(new LogMessage(LogSeverity.Info, "MainAsync", "Loading images..."));
             await _services.GetRequiredService<ImageStore>().LoadImages();
 
+            await Log(new LogMessage(LogSeverity.Info, "MainAsync", "Configuring HTTP client..."));
+            var httpClient = _services.GetRequiredService<HttpClient>();
+            httpClient.BaseAddress = new Uri("https://cornbot.azurewebsites.net");
+            httpClient.DefaultRequestHeaders.Accept.Clear();
+            httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
             await Log(LogSeverity.Info, "MainAsync", "Logging in...");
-            await client.LoginAsync(TokenType.Bot, BOT_KEY);
+            await client.LoginAsync(TokenType.Bot, _botKey);
             await Log(LogSeverity.Info, "MainAsync", "Starting bot...");
             await client.StartAsync();
-
-
-            await Log(LogSeverity.Info, "MainAsync", "Starting MQTT service...");
-            await _services.GetRequiredService<MqttService>().RunAsync();
-
-            await Log(LogSeverity.Info, "MainAsync", "Starting API service...");
-            var api = _services.GetRequiredService<CornAPI>();
-            await api.RunAsync(); // Does not return
         }
 
         public Task Log(LogMessage msg)
@@ -142,10 +128,7 @@ namespace CornBot
         private async Task AsyncOnReady()
         {
             await Log(new LogMessage(LogSeverity.Info, "OnReady", "corn has been created"));
-            // TODO: verify that this definitely works and properly broadcasts exceptions
-            _ = _services.GetRequiredService<GuildTracker>().StartDailyResetLoop()
-                .ContinueWith(t => Log(new LogMessage(LogSeverity.Critical, "ResetLoop", "Daily reset loop failed, aborting.", t.Exception)),
-                              TaskContinuationOptions.OnlyOnFaulted);
+            // TODO: daily resets
         }
 
     }

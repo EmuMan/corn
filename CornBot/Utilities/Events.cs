@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace CornBot.Utilities
 {
-    public class Utility
+    public class Events
     {
 
         public static DateTimeOffset GetAdjustedTimestamp()

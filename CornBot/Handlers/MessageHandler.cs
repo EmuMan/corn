@@ -52,7 +52,7 @@ namespace CornBot.Handlers
             WordDetector.DetectionLevel result = _cornDetector.Parse(content);
             WordDetector.DetectionLevel prideResult = _prideDetector.Parse(content);
             var isPride = prideResult == WordDetector.DetectionLevel.FULL &&
-                        Utility.GetCurrentEvent() == Constants.CornEvent.PRIDE;
+                        Events.GetCurrentEvent() == Constants.CornEvent.PRIDE;
 
             // this is a little stupid but necessary i guess
             if (message.MentionedUsers.Any(u => u.Id == _client.CurrentUser.Id) ||
@@ -79,7 +79,7 @@ namespace CornBot.Handlers
             {
                 try 
                 {
-                    if (Utility.GetCurrentEvent() == Constants.CornEvent.PRIDE &&
+                    if (Events.GetCurrentEvent() == Constants.CornEvent.PRIDE &&
                         Emote.TryParse(Constants.PRIDE_CORN_EMOJI, out var emote))
                     {
                         await message.AddReactionAsync(emote);

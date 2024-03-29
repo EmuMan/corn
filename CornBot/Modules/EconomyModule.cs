@@ -9,6 +9,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
+using CornBot.Models.Responses;
+using CornBot.Models.Requests;
 
 namespace CornBot.Modules
 {
@@ -26,50 +29,43 @@ namespace CornBot.Modules
                 LogSeverity.Debug, "Modules", "Creating EconomyModule...");
         }
 
-        [EnabledInDm(false)]
+        [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("corn", "Gets your total corn count")]
         public async Task Corn([Summary(description: "user to lookup")] IUser? user = null)
         {
-            var cornEmoji = Utility.GetCurrentEmoji();
-            var name = Utility.GetCurrentName();
-            var economy = _services.GetRequiredService<GuildTracker>();
-            var guild = await economy.LookupGuild(Context.Guild);
-            var userInfo = await guild.LookupUser(user ?? Context.User);
+            var name = Events.GetCurrentName();
+
+            var api = _services.GetRequiredService<CornAPI>();
+            var userInfo = await api.GetModelAsync<User>($"/users/{Context.Guild.Id}/{Context.User.Id}");
+
+            var cornEmoji = Events.GetCurrentEmoji();
             var stringId = user is null ? "you have" :
                     user is not SocketGuildUser guildUser ? $"{user} has" :
                     $"{guildUser.DisplayName} ({guildUser}) has";
             await RespondAsync($"{cornEmoji} {stringId} {userInfo.CornCount} {name} {cornEmoji}");
         }
 
-        [EnabledInDm(false)]
+        [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("daily", "Performs your daily shucking of corn")]
         public async Task Daily()
         {
-            var name = Utility.GetCurrentName();
-            var economy = _services.GetRequiredService<GuildTracker>();
-            var guild = await economy.LookupGuild(Context.Guild);
-            var user = await guild.LookupUser(Context.User);
-
-            if (user.HasClaimedDaily)
-                await RespondAsync("what are you trying to do, spam the daily command?");
-            else
-            {
-                var cornEmoji = Utility.GetCurrentEmoji();
-                var amount = await user.PerformDaily();
-                await RespondAsync($"{cornEmoji} you have shucked {amount} {name} today. you now have {user.CornCount} {name} {cornEmoji}");
-            }
+            var api = _services.GetRequiredService<CornAPI>();
+            var response = await api.PostModelAsync<DailyResponse>($"/daily/{Context.Guild.Id}/{Context.User.Id}/complete");
+            await RespondAsync($"{response.Message}");
         }
 
-        [EnabledInDm(false)]
-        [SlashCommand("lb", "Alias for /leaderboards")]
-        public async Task LeaderboardsAlias() => await Leaderboards();
+        [CommandContextType(InteractionContextType.Guild)]
+        [SlashCommand("lb", "Alias for /leaderboard")]
+        public async Task LeaderboardAlias() => await Leaderboard();
 
-        [EnabledInDm(false)]
-        [SlashCommand("leaderboards", "Displays the top corn havers in the guild")]
-        public async Task Leaderboards()
+        [CommandContextType(InteractionContextType.Guild)]
+        [SlashCommand("leaderboard", "Displays the top corn havers in the guild")]
+        public async Task Leaderboard()
         {
-            var name = Utility.GetCurrentName();
-            var guild = await _services.GetRequiredService<GuildTracker>().LookupGuild(Context.Guild);
+            // TODO: fix
+
+            var api = _services.GetRequiredService<CornAPI>();
+            var leaderboard = api.GetModelAsync<List<User>>($"/leaderboard/{Context.Guild.Id}");
 
             var embed = new EmbedBuilder()
                 .WithColor(Color.Gold)
@@ -82,59 +78,52 @@ namespace CornBot.Modules
             await RespondAsync(embeds: new Embed[] { embed });
         }
 
-        [EnabledInDm(true)]
+        [CommandContextType([InteractionContextType.Guild, InteractionContextType.BotDm])]
         [SlashCommand("total", "Gets the total corn count across all servers")]
         public async Task Total()
         {
-            var name = Utility.GetCurrentName();
-            var cornEmoji = Utility.GetCurrentEmoji();
-            long total = await _services.GetRequiredService<GuildTracker>().GetTotalCorn();
-            await RespondAsync($"{cornEmoji} a total of {total:n0} {name} has been shucked across all servers {cornEmoji}");
+            // TODO: implement this command!
+            await RespondAsync($"this command has not been implemented yet!");
         }
 
-        [EnabledInDm(false)]
+        [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("stats", "Gets an overview of your recent corn shucking")]
         public async Task Stats([Summary(description: "user to lookup")] IUser? user = null)
         {
-            var currencyName = Utility.GetCurrentName();
-            var economy = _services.GetRequiredService<GuildTracker>();
-            user ??= Context.User;
-            var guildInfo = await economy.LookupGuild(Context.Guild);
-            var userInfo = await guildInfo.LookupUser(user);
+            var api = _services.GetRequiredService<CornAPI>();
+            var history = await api.GetModelAsync<HistorySummary>($"/history/{Context.Guild.Id}/{Context.User.Id}");
 
-            var history = await economy.GetHistory(userInfo.UserId);
-
-            EmbedFieldBuilder[] fields = new EmbedFieldBuilder[]
-            {
+            EmbedFieldBuilder[] fields =
+            [
                 new EmbedFieldBuilder()
                     .WithName("Daily Count")
-                    .WithValue($"{history.GetDailyCount(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalDailyCount():n0})")
+                    .WithValue($"{history.DailyCount[Context.Guild.Id]:n0} " +
+                        $"({history.DailyCountGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Daily Average")
-                    .WithValue($"{history.GetDailyAverage(guildInfo.GuildId):n2} " +
-                        $"({history.GetGlobalDailyAverage():n2})")
+                    .WithValue($"{history.DailyAverage[Context.Guild.Id]:n2} " +
+                        $"({history.DailyAverageGlobal:n2})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Daily Total")
-                    .WithValue($"{history.GetDailyTotal(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalDailyTotal():n0})")
+                    .WithValue($"{history.DailyTotal[Context.Guild.Id]:n0} " +
+                        $"({history.DailyTotalGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Longest Daily Streak")
-                    .WithValue($"{history.GetLongestDailyStreak(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalLongestDailyStreak():n0})")
+                    .WithValue($"{history.LongestDailyStreak[Context.Guild.Id]:n0} " +
+                        $"({history.LongestDailyStreakGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Current Daily Streak")
-                    .WithValue($"{history.GetCurrentDailyStreak(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalCurrentDailyStreak():n0})")
+                    .WithValue($"{history.CurrentDailyStreak[Context.Guild.Id]:n0} " +
+                        $"({history.CurrentDailyStreakGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Message Total")
-                    .WithValue($"{history.GetMessageTotal(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalMessageTotal():n0})")
+                    .WithValue($"{history.MessageTotal[Context.Guild.Id]:n0} " +
+                        $"({history.MessageTotalGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Server Total")
@@ -146,22 +135,23 @@ namespace CornBot.Modules
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Cornucopia Net Gain")
-                    .WithValue($"{history.GetCornucopiaReturns(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalCornucopiaReturns():n0})")
+                    .WithValue($"{history.CornucopiaTotal[Context.Guild.Id]:n0} " +
+                        $"({history.CornucopiaTotalGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Cornucopia Percent")
-                    .WithValue($"{history.GetCornucopiaPercent(guildInfo.GuildId)*100.0:n2}% " +
-                        $"({history.GetGlobalCornucopiaPercent()*100.0:n2}%)")
+                    .WithValue($"{history.CornucopiaPercent[Context.Guild.Id]*100.0:n2}% " +
+                        $"({history.CornucopiaPercentGlobal*100.0:n2}%)")
                     .WithIsInline(true),
-            };
+            ];
 
-            var displayName = Utility.GetUserDisplayString(user, false);
+            var displayName = Events.GetUserDisplayString(user, false);
 
             var author = new EmbedAuthorBuilder()
                 .WithIconUrl(user.GetAvatarUrl())
                 .WithName(user.Username);
 
+            // TODO: fix
             var embed = new EmbedBuilder()
                 .WithTitle($"{displayName}'s {currencyName} stats")
                 .WithDescription("*server (global)*")
@@ -175,19 +165,16 @@ namespace CornBot.Modules
             await RespondAsync(embeds: new Embed[] { embed });
         }
 
-        [EnabledInDm(false)]
+        [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("cornucopia", "play a game of slots to gamble your corn")]
         public async Task Cornucopia([Summary(description: "amount of corn to gamble")] long amount)
         {
-            var name = Utility.GetCurrentName();
-            var economy = _services.GetRequiredService<GuildTracker>();
-            var guildInfo = await economy.LookupGuild(Context.Guild);
-            var userInfo = await guildInfo.LookupUser(Context.User);
-            var userHistory = await economy.GetHistory(userInfo.UserId);
-            var random = _services.GetRequiredService<Random>();
-            var timestamp = Utility.GetAdjustedTimestamp();
-            var numberInDay = userHistory.GetNumberOfCornucopias(userInfo.Guild.GuildId, timestamp.Day);
-            var maxAmount = userInfo.MaxCornucopiaAllowed;
+            var api = _services.GetRequiredService<CornAPI>();
+            var result = await api.PostModelAsync<CornucopiaRequest, CornucopiaResponse>(
+                $"/cornucopia/{Context.Guild.Id}/{Context.User.Id}/complete",
+                new CornucopiaRequest(amount));
+
+            // TODO: fix
 
             if (numberInDay >= 3)
                 await RespondAsync("what are you trying to do, feed your gambling addiction?");
@@ -226,14 +213,11 @@ namespace CornBot.Modules
         }
 
 
-        [EnabledInDm(false)]
+        [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("cornucopia-max", "play a game of slots with the highest allowed amount of corn")]
         public async Task CornucopiaMax()
         {
-            var economy = _services.GetRequiredService<GuildTracker>();
-            var guildInfo = await economy.LookupGuild(Context.Guild);
-            var userInfo = await guildInfo.LookupUser(Context.User);
-            await Cornucopia(userInfo.MaxCornucopiaAllowed);
+            // TODO: implement
         }
 
     }
