@@ -3,13 +3,27 @@
 namespace CornWebApp.Models.Responses
 {
     [method: JsonConstructor]
-    public class CornucopiaResponse(bool success, string? message, long cornAdded, long cornTotal, string board, int matches)
+    public class CornucopiaResponse(
+        CornucopiaResponse.StatusCode status,
+        string? message,
+        long cornAdded,
+        long cornTotal,
+        List<string> board,
+        int matches)
     {
-        public bool Success { get; set; } = success;
+        public enum StatusCode
+        {
+            Success,
+            AlreadyClaimedMax,
+            AmountTooLow,
+            AmountTooHigh,
+        }
+
+        public StatusCode Status { get; set; } = status;
         public string? Message { get; set; } = message;
         public long CornAdded { get; set; } = cornAdded;
         public long CornTotal { get; set; } = cornTotal;
-        public string Board { get; set; } = board;
+        public List<string> Board { get; set; } = board;
         public int Matches { get; set; } = matches;
     }
 }

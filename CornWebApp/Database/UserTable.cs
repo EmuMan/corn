@@ -241,7 +241,7 @@ namespace CornWebApp.Database
             return users;
         }
 
-        public async Task <List<User>> GetLeaderboardsAsync(int limit)
+        public async Task<List<User>> GetLeaderboardsAsync(int limit)
         {
             var statement = @"
                 SELECT TOP (@Limit) *
@@ -258,6 +258,26 @@ namespace CornWebApp.Database
                 users.Add(GetUserFromDataReader(reader));
             }
             return users;
+        }
+
+        public async Task<List<Tuple<ulong, long>>> GetTotalsAsync(ulong userId)
+        {
+            var statement = @"
+                SELECT GuildId, SUM(CornCount) AS Total
+                FROM Users
+                WHERE UserId = @UserId
+                GROUP BY GuildId;";
+            var parameters = new SqlParameter[]
+            {
+                BuildSqlParameter("@UserId", userId, SqlDbType.BigInt)
+            };
+            using var reader = await GetDataReaderAsync(statement, parameters);
+            var totals = new List<Tuple<ulong, long>>();
+            while (await reader.ReadAsync())
+            {
+                totals.Add(new Tuple<ulong, long>((ulong)reader.GetInt64(0), reader.GetInt64(1)));
+            }
+            return totals;
         }
     }
 }

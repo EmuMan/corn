@@ -49,9 +49,17 @@ namespace CornBot.Modules
         [SlashCommand("daily", "Performs your daily shucking of corn")]
         public async Task Daily()
         {
+            var name = Events.GetCurrentName();
+            var cornEmoji = Events.GetCurrentEmoji();
             var api = _services.GetRequiredService<CornAPI>();
             var response = await api.PostModelAsync<DailyResponse>($"/daily/{Context.Guild.Id}/{Context.User.Id}/complete");
-            await RespondAsync($"{response.Message}");
+            await RespondAsync(response.Status switch
+            {
+                DailyResponse.StatusCode.Success => $"you shucked 100 {name} today!",
+                DailyResponse.StatusCode.AlreadyClaimed => 
+                    $"{cornEmoji} you have shucked {response.CornAdded} {name} today. you now have {response.CornTotal} {name} {cornEmoji}",
+                _ => "something went wrong, please try again later."
+            });
         }
 
         [CommandContextType(InteractionContextType.Guild)]
@@ -62,34 +70,26 @@ namespace CornBot.Modules
         [SlashCommand("leaderboard", "Displays the top corn havers in the guild")]
         public async Task Leaderboard()
         {
-            // TODO: fix
-
+            var name = Events.GetCurrentName();
             var api = _services.GetRequiredService<CornAPI>();
-            var leaderboard = api.GetModelAsync<List<User>>($"/leaderboard/{Context.Guild.Id}");
+            var leaderboard = api.GetModelAsync<LeaderboardResponse>($"/leaderboard/{Context.Guild.Id}");
 
             var embed = new EmbedBuilder()
                 .WithColor(Color.Gold)
                 .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
                 .WithTitle($"Top {name} havers:")
-                .WithDescription(await guild.GetLeaderboardsString())
+                .WithDescription(leaderboard.ToString())
                 .WithCurrentTimestamp()
                 .Build();
 
-            await RespondAsync(embeds: new Embed[] { embed });
-        }
-
-        [CommandContextType([InteractionContextType.Guild, InteractionContextType.BotDm])]
-        [SlashCommand("total", "Gets the total corn count across all servers")]
-        public async Task Total()
-        {
-            // TODO: implement this command!
-            await RespondAsync($"this command has not been implemented yet!");
+            await RespondAsync(embeds: [embed]);
         }
 
         [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("stats", "Gets an overview of your recent corn shucking")]
         public async Task Stats([Summary(description: "user to lookup")] IUser? user = null)
         {
+            var name = Events.GetCurrentName();
             var api = _services.GetRequiredService<CornAPI>();
             var history = await api.GetModelAsync<HistorySummary>($"/history/{Context.Guild.Id}/{Context.User.Id}");
 
@@ -127,11 +127,11 @@ namespace CornBot.Modules
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Server Total")
-                    .WithValue(userInfo.CornCount.ToString("n0"))
+                    .WithValue(history.Total[Context.Guild.Id].ToString("n0"))
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Global Total")
-                    .WithValue(economy.GetTotalCorn(user).ToString("n0"))
+                    .WithValue(history.TotalGlobal.ToString("n0"))
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Cornucopia Net Gain")
@@ -151,9 +151,8 @@ namespace CornBot.Modules
                 .WithIconUrl(user.GetAvatarUrl())
                 .WithName(user.Username);
 
-            // TODO: fix
             var embed = new EmbedBuilder()
-                .WithTitle($"{displayName}'s {currencyName} stats")
+                .WithTitle($"{displayName}'s {name} stats")
                 .WithDescription("*server (global)*")
                 .WithAuthor(author)
                 .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
@@ -162,53 +161,52 @@ namespace CornBot.Modules
                 .WithFields(fields)
                 .Build();
 
-            await RespondAsync(embeds: new Embed[] { embed });
+            await RespondAsync(embeds: [embed]);
         }
 
         [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("cornucopia", "play a game of slots to gamble your corn")]
         public async Task Cornucopia([Summary(description: "amount of corn to gamble")] long amount)
         {
+            var name = Events.GetCurrentName();
             var api = _services.GetRequiredService<CornAPI>();
+            var cornucopiaInfo = await api.GetModelAsync<CornucopiaInfoResponse>($"/cornucopia/{Context.Guild.Id}/{Context.User.Id}/info");
             var result = await api.PostModelAsync<CornucopiaRequest, CornucopiaResponse>(
                 $"/cornucopia/{Context.Guild.Id}/{Context.User.Id}/complete",
                 new CornucopiaRequest(amount));
 
-            // TODO: fix
-
-            if (numberInDay >= 3)
-                await RespondAsync("what are you trying to do, feed your gambling addiction?");
-            else if (amount < 1)
-                await RespondAsync($"you can't gamble less than 1 {name}.");
-            else if (amount > userInfo.CornCount)
-                await RespondAsync($"you don't have that much {name}.");
-            else if (amount > maxAmount)
-                await RespondAsync($"you can't gamble more than {maxAmount} {name} at a time.");
-            else
+            if (result.Status == CornucopiaResponse.StatusCode.AlreadyClaimedMax)
             {
-                SlotMachine slotMachine = new(3, amount, random);
+                await RespondAsync("what are you trying to do, feed your gambling addiction?");
+                return;
+            }
+            else if (result.Status == CornucopiaResponse.StatusCode.AmountTooLow)
+            {
+                await RespondAsync($"you can't gamble less than 1 {name}.");
+                return;
+            }
+            else if (result.Status == CornucopiaResponse.StatusCode.AmountTooHigh)
+            {
+                await RespondAsync($"you can't gamble more than {cornucopiaInfo.MaxAmount} {name} at a time.");
+                return;
+            }
 
-                var author = new EmbedAuthorBuilder()
-                    .WithIconUrl(Context.User.GetAvatarUrl())
-                    .WithName(Context.User.ToString());
-                var embed = new EmbedBuilder()
-                    .WithDescription(slotMachine.RenderToString(0, numberInDay))
-                    .WithAuthor(author)
-                    .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
-                    .WithCurrentTimestamp()
-                    .WithColor(Color.Gold);
+            var author = new EmbedAuthorBuilder()
+                .WithIconUrl(Context.User.GetAvatarUrl())
+                .WithName(Context.User.ToString());
+            var embed = new EmbedBuilder()
+                .WithDescription(result.RenderToString(amount, cornucopiaInfo, 0))
+                .WithAuthor(author)
+                .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
+                .WithCurrentTimestamp()
+                .WithColor(Color.Gold);
 
-                await RespondAsync(embeds: new Embed[] { embed.Build() });
-                await userInfo.UpdateForGambling(amount, slotMachine.GetWinnings());
-                await userInfo.Save();
-                while (slotMachine.RevealProgress < slotMachine.Size)
-                {
-                    await Task.Delay(2000);
-                    slotMachine.RevealProgress++;
-                    embed.Description = slotMachine.RenderToString(userInfo.CornCount, numberInDay);
-                    await ModifyOriginalResponseAsync(m => m.Embed = embed.Build());
-                }
-
+            await RespondAsync(embeds: [embed.Build()]);
+            for (int i = 0; i < result.GetMaxWidth() + 1; i++)
+            {
+                await Task.Delay(2000);
+                embed.Description = result.RenderToString(amount, cornucopiaInfo, i);
+                await ModifyOriginalResponseAsync(m => m.Embed = embed.Build());
             }
         }
 
@@ -217,7 +215,10 @@ namespace CornBot.Modules
         [SlashCommand("cornucopia-max", "play a game of slots with the highest allowed amount of corn")]
         public async Task CornucopiaMax()
         {
-            // TODO: implement
+            // this causes a double API call which is... not super desirable, but also i'm lazy
+            var api = _services.GetRequiredService<CornAPI>();
+            var cornucopiaInfo = await api.GetModelAsync<CornucopiaInfoResponse>($"/cornucopia/{Context.Guild.Id}/{Context.User.Id}/info");
+            await Cornucopia(cornucopiaInfo.MaxAmount);
         }
 
     }

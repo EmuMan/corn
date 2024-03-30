@@ -10,7 +10,8 @@ namespace CornWebApp.Utilities
         {
             if (user.HasClaimedDaily)
             {
-                return new DailyResponse(false, "You have already claimed your daily corn", 0, user.CornCount);
+                return new DailyResponse(DailyResponse.StatusCode.AlreadyClaimed,
+                    "You have already claimed your daily corn", 0, user.CornCount);
             }
 
             var currentEvent = Events.GetCurrentEvent();
@@ -34,25 +35,30 @@ namespace CornWebApp.Utilities
                 
             // TODO: Implement history/logging
 
-            return new DailyResponse(true, "You have claimed your daily corn", amount, user.CornCount);
+            return new DailyResponse(DailyResponse.StatusCode.Success,
+                "You have claimed your daily corn", amount, user.CornCount);
         }
 
         public static CornucopiaResponse PerformCornucopia(User user, long amount, Random random)
         {
+            var maxAllowedAmount = GetCornucopiaMaxAmount(user);
+
             if (user.CornucopiaCount >= 3)
             {
-                return new CornucopiaResponse(false, "You have already performed the maximum number of Cornucopias today", 0, user.CornCount, "", 0);
+                return new CornucopiaResponse(CornucopiaResponse.StatusCode.AlreadyClaimedMax,
+                    "You have already performed the maximum number of Cornucopias today", 0, user.CornCount, [], 0);
             }
 
             if (amount < 1)
             {
-                return new CornucopiaResponse(false, "You must bet at least 1 corn", 0, user.CornCount, "", 0);
+                return new CornucopiaResponse(CornucopiaResponse.StatusCode.AmountTooLow,
+                    "You must bet at least 1 corn", 0, user.CornCount, [], 0);
             }
 
-            var maxAllowedAmount = (long)Math.Round(2_000.0 * user.CornCount / (user.CornCount + 2_000));
             if (amount > maxAllowedAmount)
             {
-                return new CornucopiaResponse(false, $"You can bet at most {maxAllowedAmount} corn", 0, user.CornCount, "", 0);
+                return new CornucopiaResponse(CornucopiaResponse.StatusCode.AmountTooHigh,
+                    $"You can bet at most {maxAllowedAmount} corn", 0, user.CornCount, [], 0);
             }
 
             var slotMachine = new SlotMachine(3, amount, random);
@@ -63,12 +69,17 @@ namespace CornWebApp.Utilities
             user.CornucopiaCount += 1;
 
             return new CornucopiaResponse(
-                true,
+                CornucopiaResponse.StatusCode.Success,
                 "Cornucopia performed successfully",
                 winnings,
                 user.CornCount,
-                slotMachine.GetStringRepresentation(),
+                slotMachine.GetBoard(),
                 slotMachine.GetMatches().Values.Sum());
+        }
+
+        public static long GetCornucopiaMaxAmount(User user)
+        {
+            return (long)Math.Round(2_000.0 * user.CornCount / (user.CornCount + 2_000));
         }
     }
 }

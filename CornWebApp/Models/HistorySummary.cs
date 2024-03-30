@@ -4,6 +4,8 @@ namespace CornWebApp.Models
 {
     public class HistorySummary
     {
+        public Dictionary<ulong, long> Total { get; set; } = [];
+        public long TotalGlobal { get; set; } = 0;
         public Dictionary<ulong, int> DailyCount { get; set; } = [];
         public int DailyCountGlobal { get; set; } = 0;
         public Dictionary<ulong, long> DailyTotal { get; set; } = [];
@@ -27,7 +29,7 @@ namespace CornWebApp.Models
         public Dictionary<ulong, double> CornucopiaPercent { get; set; } = [];
         public double CornucopiaPercentGlobal { get; set; } = 0;
 
-        public HistorySummary(List<HistoryEntry> entries)
+        public HistorySummary(List<HistoryEntry> entries, List<Tuple<ulong, long>> totals)
         {
             Dictionary<ulong, List<HistoryEntry>> guildDailies = [];
             Dictionary<ulong, List<HistoryEntry>> guildMessages = [];
@@ -65,6 +67,12 @@ namespace CornWebApp.Models
                     }
                 }
             }
+
+            foreach (var total in totals)
+            {
+                Total[total.Item1] = total.Item2;
+            }
+            TotalGlobal = totals.Sum(t => t.Item2);
 
             ComputeDailyStats(guildDailies, allDailies);
             ComputeMessageStats(guildMessages, allMessages);

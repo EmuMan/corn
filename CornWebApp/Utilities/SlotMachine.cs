@@ -61,24 +61,25 @@ namespace CornWebApp.Utilities
             }
         }
 
-        public string GetStringRepresentation()
+        public List<string> GetBoard()
         {
-            var sb = new StringBuilder();
+            var rows = new List<string>();
             for (int row = 0; row < Size; row++)
             {
+                var sb = new StringBuilder();
                 for (int col = 0; col < Size; col++)
                 {
                     sb.Append(grid[row][col] switch
                     {
                         BoxValue.Corn => "C",
-                        BoxValue.Popcorn => "P",
                         BoxValue.Unicorn => "U",
+                        BoxValue.Popcorn => "P",
                         _ => "X",
                     });
                 }
-                sb.Append('\n');
+                rows.Add(sb.ToString());
             }
-            return sb.ToString();
+            return rows;
         }
 
         public Dictionary<BoxValue, int> GetMatches()

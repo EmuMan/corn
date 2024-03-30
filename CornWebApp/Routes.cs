@@ -1,6 +1,7 @@
 ﻿using CornWebApp.Database;
 using CornWebApp.Models;
 using CornWebApp.Models.Requests;
+using CornWebApp.Models.Responses;
 using CornWebApp.Utilities;
 
 namespace CornWebApp
@@ -128,7 +129,7 @@ namespace CornWebApp
         {
             var dailyApi = App.MapGroup("/daily");
 
-            dailyApi.MapPost("/{guildId}/{userId}/complete", async (HttpContext context, ulong guildId, ulong userId) =>
+            dailyApi.MapPost("/{guildId}/{userId}/claim", async (HttpContext context, ulong guildId, ulong userId) =>
             {
                 var guild = await Database.Guilds.GetOrCreateAsync(guildId);
                 var user = await Database.Users.GetOrCreateAsync(guildId, userId);
@@ -180,6 +181,14 @@ namespace CornWebApp
         private void SetupCornucopiaRoutes()
         {
             var cornucopiaApi = App.MapGroup("/cornucopia");
+
+            cornucopiaApi.MapGet("/{guildId}/{userId}/info", async (HttpContext context, ulong guildId, ulong userId) =>
+            {
+                var user = await Database.Users.GetOrCreateAsync(guildId, userId);
+                var maxAmount = Economy.GetCornucopiaMaxAmount(user);
+                var response = new CornucopiaInfoResponse(maxAmount, user.CornucopiaCount);
+                return Results.Json(response, JsonSerializerContext);
+            });
 
             cornucopiaApi.MapPost("/{guildId}/{userId}/perform", async (HttpContext context, ulong guildId, ulong userId) =>
             {
@@ -242,7 +251,8 @@ namespace CornWebApp
             historyApi.MapGet("/{userId}", async (HttpContext context, ulong userId) =>
             {
                 var entries = await Database.History.GetFromUserIdAsync(userId);
-                var history = new HistorySummary(entries);
+                var totals = await Database.Users.GetTotalsAsync(userId);
+                var history = new HistorySummary(entries, totals);
                 return Results.Json(history, JsonSerializerContext);
             });
         }
@@ -266,7 +276,7 @@ namespace CornWebApp
                 }
 
                 var leaderboard = await Database.Users.GetLeaderboardsAsync(guild, limit);
-                return Results.Json(leaderboard, JsonSerializerContext);
+                return Results.Json(new LeaderboardResponse(leaderboard), JsonSerializerContext);
             });
 
             leaderboardApi.MapGet("/", async (HttpContext context) =>
@@ -278,7 +288,7 @@ namespace CornWebApp
                 }
 
                 var leaderboard = await Database.Users.GetLeaderboardsAsync(limit);
-                return Results.Json(leaderboard, JsonSerializerContext);
+                return Results.Json(new LeaderboardResponse(leaderboard), JsonSerializerContext);
             });
         }
     }
