@@ -37,7 +37,7 @@ namespace CornWebApp.Database
                 hasClaimedDaily: reader.GetInt32(3) != 0,
                 cornucopiaCount: reader.GetInt32(4),
                 cornMultiplier: reader.GetDouble(5),
-                cornMultiplierLastEdit: (ulong)reader.GetInt64(6)
+                cornMultiplierLastEdit: reader.GetInt64(6)
             );
         }
 

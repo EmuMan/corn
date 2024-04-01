@@ -21,6 +21,7 @@ namespace CornWebApp
             SetupCornucopiaRoutes();
             SetupHistoryRoutes();
             SetupLeaderboardRoutes();
+            SetupMessageRoutes();
         }
 
         private void SetupUserRoutes()
@@ -136,6 +137,18 @@ namespace CornWebApp
 
                 var result = Economy.PerformDaily(user, guild);
 
+                if (result.Status == DailyResponse.StatusCode.Success)
+                {
+                    await Database.History.InsertAsync(new(
+                        id: 0,
+                        guildId: guild.GuildId,
+                        userId: user.UserId,
+                        actionType: HistoryEntry.ActionType.Daily,
+                        value: result.CornAdded,
+                        timestamp: Events.GetAdjustedTimestamp()
+                    ));
+                }
+
                 await Database.Guilds.InsertOrUpdateAsync(guild);
                 await Database.Users.InsertOrUpdateAsync(user);
 
@@ -204,6 +217,35 @@ namespace CornWebApp
                 var user = await Database.Users.GetOrCreateAsync(guildId, userId);
                 var result = Economy.PerformCornucopia(user, request.Amount, Random);
                 await Database.Users.InsertOrUpdateAsync(user);
+
+                if (result.Status == CornucopiaResponse.StatusCode.Success)
+                {
+                    var timestamp = Events.GetAdjustedTimestamp();
+                    await Database.History.InsertAsync(new(
+                        id: 0,
+                        guildId: guildId,
+                        userId: userId,
+                        actionType: HistoryEntry.ActionType.CornucopiaIn,
+                        value: request.Amount,
+                        timestamp: timestamp
+                    ));
+                    await Database.History.InsertAsync(new(
+                        id: 0,
+                        guildId: guildId,
+                        userId: userId,
+                        actionType: HistoryEntry.ActionType.CornucopiaMatches,
+                        value: result.Matches,
+                        timestamp: timestamp
+                    ));
+                    await Database.History.InsertAsync(new(
+                        id: 0,
+                        guildId: guildId,
+                        userId: userId,
+                        actionType: HistoryEntry.ActionType.CornucopiaOut,
+                        value: result.CornAdded,
+                        timestamp: timestamp
+                    ));
+                }
 
                 return Results.Json(result, JsonSerializerContext, statusCode: 201);
             });
@@ -289,6 +331,35 @@ namespace CornWebApp
 
                 var leaderboard = await Database.Users.GetLeaderboardsAsync(limit);
                 return Results.Json(new LeaderboardResponse(leaderboard), JsonSerializerContext);
+            });
+        }
+
+        private void SetupMessageRoutes()
+        {
+            var messageApi = App.MapGroup("/message");
+
+            messageApi.MapPost("/{guildId}/{userId}/add", async (HttpContext context, ulong guildId, ulong userId) =>
+            {
+                var message = await context.Request.ReadFromJsonAsync<MessageRequest>();
+                if (message is null)
+                {
+                    return Results.BadRequest("Invalid message");
+                }
+
+                var user = await Database.Users.GetOrCreateAsync(guildId, userId);
+                var result = Economy.AddCornWithPenalty(user, message.Amount);
+                await Database.Users.InsertOrUpdateAsync(user);
+
+                await Database.History.InsertAsync(new(
+                    id: 0,
+                    guildId: guildId,
+                    userId: userId,
+                    actionType: HistoryEntry.ActionType.Message,
+                    value: result.Amount,
+                    timestamp: Events.GetAdjustedTimestamp()
+                ));
+
+                return Results.Json(result, JsonSerializerContext, statusCode: 201);
             });
         }
     }

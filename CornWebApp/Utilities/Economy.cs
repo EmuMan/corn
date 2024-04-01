@@ -20,7 +20,7 @@ namespace CornWebApp.Utilities
 
             if (currentEvent == Constants.CornEvent.SHUCKING_STREAKS)
             {
-                // TODO: Implement history
+                // TODO: Implement shucking streaks
             }
 
             user.CornCount += amount;
@@ -32,8 +32,6 @@ namespace CornWebApp.Utilities
             {
                 // TODO: Implement shared shucking
             }
-                
-            // TODO: Implement history/logging
 
             return new DailyResponse(DailyResponse.StatusCode.Success,
                 "You have claimed your daily corn", amount, user.CornCount);
@@ -80,6 +78,30 @@ namespace CornWebApp.Utilities
         public static long GetCornucopiaMaxAmount(User user)
         {
             return (long)Math.Round(2_000.0 * user.CornCount / (user.CornCount + 2_000));
+        }
+
+        public static MessageResponse AddCornWithPenalty(User user, long amount)
+        {
+            // increase the corn multiplier by the time since the last edit
+            var timeSinceLastEdit = DateTime.UtcNow - DateTime.FromBinary(user.CornMultiplierLastEdit);
+            user.CornMultiplier = Math.Min(1.0, user.CornMultiplier + timeSinceLastEdit.TotalSeconds * (1.0 / Constants.CORN_RECHARGE_TIME));
+
+            if (user.CornMultiplier <= 0.0)
+            {
+                // user is below cooldown threshold, don't give corn and max cooldown
+                user.CornMultiplier = -1.0;
+                user.CornMultiplierLastEdit = DateTime.UtcNow.ToBinary();
+                return new MessageResponse(0);
+            }
+            // set penalty before corn is modified
+            var penalty = (double)amount / 15;
+            // set corn to use the modifier
+            amount = (long)(Math.Round(amount * user.CornMultiplier));
+            // apply penalty
+            user.CornMultiplier -= penalty;
+            user.CornCount += amount;
+            user.CornMultiplierLastEdit = DateTime.UtcNow.ToBinary();
+            return new MessageResponse(amount);
         }
     }
 }

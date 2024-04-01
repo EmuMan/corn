@@ -13,7 +13,7 @@ namespace CornWebApp.Models
         bool hasClaimedDaily,
         int cornucopiaCount,
         double cornMultiplier,
-        ulong cornMultiplierLastEdit)
+        long cornMultiplierLastEdit)
     {
         public bool IsNew { get; set; } = isNew;
         public ulong UserId { get; set; } = userId;
@@ -24,7 +24,7 @@ namespace CornWebApp.Models
         public bool HasClaimedDaily { get; set; } = hasClaimedDaily;
         public int CornucopiaCount { get; set; } = cornucopiaCount;
         public double CornMultiplier { get; set; } = cornMultiplier;
-        public ulong CornMultiplierLastEdit { get; set; } = cornMultiplierLastEdit;
+        public long CornMultiplierLastEdit { get; set; } = cornMultiplierLastEdit;
 
         [JsonConstructor]
         public User(bool isNew, ulong guildId, ulong userId)
@@ -38,7 +38,7 @@ namespace CornWebApp.Models
             bool hasClaimedDaily,
             int cornucopiaCount,
             double cornMultiplier,
-            ulong cornMultiplierLastEdit)
+            long cornMultiplierLastEdit)
             : this(
                   isNew,
                   guildId,
