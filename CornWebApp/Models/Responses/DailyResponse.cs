@@ -3,15 +3,15 @@
 namespace CornWebApp.Models.Responses
 {
     [method: JsonConstructor]
-    public class DailyResponse(DailyResponse.StatusCode status, string? message, long cornAdded, long cornTotal)
+    public class DailyResponse(DailyResponse.DailyStatus status, string? message, long cornAdded, long cornTotal)
     {
-        public enum StatusCode
+        public enum DailyStatus
         {
             Success,
             AlreadyClaimed,
         }
 
-        public StatusCode Status { get; set; } = status;
+        public DailyStatus Status { get; set; } = status;
         public string? Message { get; set; } = message;
         public long CornAdded { get; set; } = cornAdded;
         public long CornTotal { get; set; } = cornTotal;

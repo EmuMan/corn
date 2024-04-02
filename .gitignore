@@ -410,3 +410,6 @@ CornBot/cornfig.Production.json
 .idea/.idea.CornBot/.idea/
 
 CornBot/cornfig.Local.json
+
+**/Properties/PublishProfiles
+**/Properties/ServiceDependencies

@@ -6,14 +6,14 @@ namespace CornBot.Models.Responses
 {
     [method: JsonConstructor]
     public class CornucopiaResponse(
-        CornucopiaResponse.StatusCode status,
+        CornucopiaResponse.CornucopiaStatus status,
         string? message,
         long cornAdded,
         long cornTotal,
         List<string> board,
         int matches)
     {
-        public enum StatusCode
+        public enum CornucopiaStatus
         {
             Success,
             AlreadyClaimedMax,
@@ -21,7 +21,7 @@ namespace CornBot.Models.Responses
             AmountTooHigh,
         }
 
-        public StatusCode Status { get; set; } = status;
+        public CornucopiaStatus Status { get; set; } = status;
         public string? Message { get; set; } = message;
         public long CornAdded { get; set; } = cornAdded;
         public long CornTotal { get; set; } = cornTotal;
@@ -36,18 +36,18 @@ namespace CornBot.Models.Responses
         public string RenderToString(long initialBet, CornucopiaInfoResponse info, int revealProgress)
         {
             var squareMap = new Dictionary<char, string>
-        {
-            { 'C', Events.GetCurrentEmoji() },
-            { 'U', Constants.UNICORN_EMOJI },
-            { 'P', Constants.POPCORN_EMOJI },
-        };
+            {
+                { 'C', Events.GetCurrentEmoji() },
+                { 'U', Constants.UNICORN_EMOJI },
+                { 'P', Constants.POPCORN_EMOJI },
+            };
             var name = Events.GetCurrentName();
 
             var sb = new StringBuilder();
 
             // header
             sb.AppendLine($"## **Cornucopia** ({info.CornucopiaCount + 1}/3)");
-            sb.AppendLine($"### Bet: {CornAdded:n0} {name}");
+            sb.AppendLine($"### Bet: {initialBet:n0} {name}");
             sb.AppendLine();
 
             // slots grid
@@ -78,9 +78,9 @@ namespace CornBot.Models.Responses
                 string lineStr = matches == 1 ? "line" : "lines";
                 long netGain = CornAdded - initialBet;
                 long absNetGain = Math.Abs(netGain);
-                if (netGain == initialBet)
+                if (netGain == 0)
                     sb.AppendLine($"### You had {matches:n0} {lineStr} and your {name} remained the same.");
-                else if (netGain < initialBet)
+                else if (netGain < 0)
                     sb.AppendLine($"### You had {matches:n0} {lineStr} and lost {absNetGain:n0} {name}.");
                 else
                     sb.AppendLine($"### You had {matches:n0} {lineStr} and won {absNetGain:n0} {name}!");

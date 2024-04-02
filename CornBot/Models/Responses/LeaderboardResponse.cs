@@ -29,15 +29,15 @@ namespace CornBot.Models.Responses
             }
         }
 
-        public override string ToString()
+        public async Task<string> ToStringAsync(CornClient client)
         {
             var name = Events.GetCurrentName();
             var sb = new StringBuilder();
             foreach (Tuple<int, User> tuple in Leaderboard)
             {
                 var suffix = tuple.Item2.HasClaimedDaily ? "" : $" {Constants.CALENDAR_EMOJI}";
-                // TODO: add user display name
-                sb.Append($"{tuple.Item1} : {tuple.Item2.UserId} - {tuple.Item2.CornCount} {name}{suffix}");
+                var displayString = await client.GetUserDisplayStringAsync(tuple.Item2.GuildId, tuple.Item2.UserId, true);
+                sb.Append($"{tuple.Item1} : {displayString} - {tuple.Item2.CornCount} {name}{suffix}");
             }
             return sb.ToString();
         }

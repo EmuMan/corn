@@ -56,22 +56,5 @@ namespace CornBot.Utilities
                     return "corn";
             }
         }
-
-        public static string GetUserDisplayString(IUser user, bool includeUsername)
-        {
-            string displayName = user is SocketGuildUser guildUser ?
-                guildUser.DisplayName :
-                (user.GlobalName ?? user.Username);
-
-            if (includeUsername)
-            {
-                return displayName == user.Username ? user.Username : $"{displayName} ({user.Username})";
-            }
-            else
-            {
-                return displayName;
-            }
-        }
-
     }
 }

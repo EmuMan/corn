@@ -11,7 +11,11 @@ namespace CornBot.Utilities
     [JsonSerializable(typeof(List<Guild>))]
     [JsonSerializable(typeof(DailyResponse))]
     [JsonSerializable(typeof(CornucopiaResponse))]
+    [JsonSerializable(typeof(CornucopiaInfoResponse))]
+    [JsonSerializable(typeof(LeaderboardResponse))]
+    [JsonSerializable(typeof(MessageResponse))]
     [JsonSerializable(typeof(CornucopiaRequest))]
+    [JsonSerializable(typeof(MessageRequest))]
     [JsonSerializable(typeof(HistorySummary))]
     public partial class AppJsonSerializerContext : JsonSerializerContext
     {

@@ -31,9 +31,17 @@ namespace CornWebApp.Models
 
         public HistorySummary(List<HistoryEntry> entries, List<Tuple<ulong, long>> totals)
         {
-            Dictionary<ulong, List<HistoryEntry>> guildDailies = [];
-            Dictionary<ulong, List<HistoryEntry>> guildMessages = [];
-            Dictionary<ulong, List<Tuple<HistoryEntry, HistoryEntry>>> guildCornucopias = [];
+            var allGuildIds = entries.Select(e => e.GuildId).Distinct().ToList();
+
+            Dictionary<ulong, List<HistoryEntry>> guildDailies = allGuildIds.ToDictionary(
+                guildId => guildId,
+                _ => new List<HistoryEntry>());
+            Dictionary<ulong, List<HistoryEntry>> guildMessages = allGuildIds.ToDictionary(
+                guildId => guildId,
+                _ => new List<HistoryEntry>());
+            Dictionary<ulong, List<Tuple<HistoryEntry, HistoryEntry>>> guildCornucopias = allGuildIds.ToDictionary(
+                guildId => guildId,
+                _ => new List<Tuple<HistoryEntry, HistoryEntry>>());
             List<HistoryEntry> allDailies = [];
             List<HistoryEntry> allMessages = [];
             List<Tuple<HistoryEntry, HistoryEntry>> allCornucopias = [];
@@ -154,8 +162,8 @@ namespace CornWebApp.Models
 
             DailyAverage = guildDailies.ToDictionary(
                 kvp => kvp.Key,
-                kvp => DailyTotal[kvp.Key] / DailyCount[kvp.Key]);
-            DailyAverageGlobal = DailyTotalGlobal / DailyCountGlobal;
+                kvp => DailyCount[kvp.Key] == 0 ? 0 : DailyTotal[kvp.Key] / DailyCount[kvp.Key]);
+            DailyAverageGlobal = DailyCountGlobal == 0 ? 0 : DailyTotalGlobal / DailyCountGlobal;
 
             LongestDailyStreak = guildDailies.ToDictionary(
                 kvp => kvp.Key,
@@ -199,8 +207,8 @@ namespace CornWebApp.Models
 
             CornucopiaAverage = guildCornucopias.ToDictionary(
                 kvp => kvp.Key,
-                kvp => CornucopiaTotal[kvp.Key] / CornucopiaCount[kvp.Key]);
-            CornucopiaAverageGlobal = CornucopiaTotalGlobal / CornucopiaCountGlobal;
+                kvp => CornucopiaCount[kvp.Key] == 0 ? 0 : CornucopiaTotal[kvp.Key] / CornucopiaCount[kvp.Key]);
+            CornucopiaAverageGlobal = CornucopiaCountGlobal == 0 ? 0 : CornucopiaTotalGlobal / CornucopiaCountGlobal;
 
             CornucopiaPercent = guildCornucopias.ToDictionary(
                 kvp => kvp.Key,

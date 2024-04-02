@@ -10,7 +10,7 @@ namespace CornWebApp.Utilities
         {
             if (user.HasClaimedDaily)
             {
-                return new DailyResponse(DailyResponse.StatusCode.AlreadyClaimed,
+                return new DailyResponse(DailyResponse.DailyStatus.AlreadyClaimed,
                     "You have already claimed your daily corn", 0, user.CornCount);
             }
 
@@ -33,7 +33,7 @@ namespace CornWebApp.Utilities
                 // TODO: Implement shared shucking
             }
 
-            return new DailyResponse(DailyResponse.StatusCode.Success,
+            return new DailyResponse(DailyResponse.DailyStatus.Success,
                 "You have claimed your daily corn", amount, user.CornCount);
         }
 
@@ -43,19 +43,19 @@ namespace CornWebApp.Utilities
 
             if (user.CornucopiaCount >= 3)
             {
-                return new CornucopiaResponse(CornucopiaResponse.StatusCode.AlreadyClaimedMax,
+                return new CornucopiaResponse(CornucopiaResponse.CornucopiaStatus.AlreadyClaimedMax,
                     "You have already performed the maximum number of Cornucopias today", 0, user.CornCount, [], 0);
             }
 
             if (amount < 1)
             {
-                return new CornucopiaResponse(CornucopiaResponse.StatusCode.AmountTooLow,
+                return new CornucopiaResponse(CornucopiaResponse.CornucopiaStatus.AmountTooLow,
                     "You must bet at least 1 corn", 0, user.CornCount, [], 0);
             }
 
             if (amount > maxAllowedAmount)
             {
-                return new CornucopiaResponse(CornucopiaResponse.StatusCode.AmountTooHigh,
+                return new CornucopiaResponse(CornucopiaResponse.CornucopiaStatus.AmountTooHigh,
                     $"You can bet at most {maxAllowedAmount} corn", 0, user.CornCount, [], 0);
             }
 
@@ -67,7 +67,7 @@ namespace CornWebApp.Utilities
             user.CornucopiaCount += 1;
 
             return new CornucopiaResponse(
-                CornucopiaResponse.StatusCode.Success,
+                CornucopiaResponse.CornucopiaStatus.Success,
                 "Cornucopia performed successfully",
                 winnings,
                 user.CornCount,

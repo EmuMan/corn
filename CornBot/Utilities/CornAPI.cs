@@ -4,10 +4,10 @@ using System.Text.Json.Serialization;
 
 namespace CornBot.Utilities
 {
-    public class CornAPI(HttpClient client, JsonSerializerContext jsc)
+    public class CornAPI(HttpClient client, AppJsonSerializerContext jsc)
     {
         public HttpClient Client { get; private set; } = client;
-        public JsonSerializerContext JSC { get; private set; } = jsc;
+        public AppJsonSerializerContext JSC { get; private set; } = jsc;
 
         public async Task<TRes> GetModelAsync<TRes>(string url)
         {

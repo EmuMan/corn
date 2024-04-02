@@ -5,17 +5,11 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SixLabors.Fonts;
-using Azure.Security.KeyVault.Secrets;
-using Azure.Identity;
 using System.Diagnostics;
 using CornBot.Handlers;
 using CornBot.Models;
 using CornBot.Utilities;
-
-// cornfig.Local.json format
-// {
-//     "BotKey" : "######..."
-// }
+using System.ComponentModel;
 
 namespace CornBot
 {
@@ -39,19 +33,18 @@ namespace CornBot
 
         public CornClient()
         {
-#if DEBUG
             Configuration = new ConfigurationBuilder()
                 .AddJsonFile("cornfig.json", false, false)
                 .Build();
-#else
-            Configuration = new ConfigurationBuilder()
-                .AddJsonFile("cornfig.Production.json", false, false)
-                .Build();
-#endif
-            var keyVaultUri = Configuration["KeyVaultUri"] ?? throw new ArgumentNullException("KeyVaultUri");
-            var keyName = Configuration["KeyName"] ?? throw new ArgumentNullException("KeyName");
-            var client = new SecretClient(new Uri(keyVaultUri), new DefaultAzureCredential());
-            _botKey = client.GetSecret(keyName).Value.Value;
+            var tempKey = Configuration["discord_token"];
+            if (tempKey == null)
+            {
+                throw new Exception("No bot key found in cornfig.json");
+            }
+            else
+            {
+                _botKey = tempKey;
+            }
 
             _services = new ServiceCollection()
                 .AddSingleton(this)
@@ -105,6 +98,8 @@ namespace CornBot
             await client.LoginAsync(TokenType.Bot, _botKey);
             await Log(LogSeverity.Info, "MainAsync", "Starting bot...");
             await client.StartAsync();
+
+            await Task.Delay(Timeout.Infinite);
         }
 
         public Task Log(LogMessage msg)
@@ -123,6 +118,35 @@ namespace CornBot
         public Task Log(LogSeverity severity, string source, string message, Exception? exception = null)
         {
             return Log(new LogMessage(severity, source, message, exception));
+        }
+
+        public async Task<string> GetUserDisplayStringAsync(ulong guildId, ulong userId, bool includeUsername)
+        {
+            var client = _services.GetRequiredService<DiscordSocketClient>();
+            var guild = client.GetGuild(guildId);
+            var user = guild.GetUser(userId);
+            if (user is null)
+            {
+                await guild.DownloadUsersAsync();
+                user = guild.GetUser(userId);
+                if (user is null)
+                {
+                    return userId.ToString();
+                }
+            }
+
+            string displayName = user is SocketGuildUser guildUser ?
+                guildUser.DisplayName :
+                (user.GlobalName ?? user.Username);
+
+            if (includeUsername)
+            {
+                return displayName == user.Username ? user.Username : $"{displayName} ({user.Username})";
+            }
+            else
+            {
+                return displayName;
+            }
         }
 
         private async Task AsyncOnReady()

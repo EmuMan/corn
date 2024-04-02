@@ -64,7 +64,7 @@ namespace CornBot.Handlers
                 {
                     try { await message.Channel.SendMessageAsync(Constants.CORN_ANGRY_DIALOGUE); }
                     catch (HttpException) { }
-                    await api.PostModelAsync<MessageRequest, MessageResponse>($"/message/{channel.Id}/{message.Author.Id}/add",
+                    await api.PostModelAsync<MessageRequest, MessageResponse>($"/message/{channel.Guild.Id}/{message.Author.Id}/add",
                         new MessageRequest(-1000));
                 }
                 else
@@ -73,7 +73,7 @@ namespace CornBot.Handlers
                         Constants.CORN_PRIDE_DIALOGUE_COMBINED : Constants.CORN_NICE_DIALOGUE;
                     try { await message.Channel.SendMessageAsync(response); }
                     catch (HttpException) { }
-                    await api.PostModelAsync<MessageRequest, MessageResponse>($"/message/{channel.Id}/{message.Author.Id}/add",
+                    await api.PostModelAsync<MessageRequest, MessageResponse>($"/message/{channel.Guild.Id}/{message.Author.Id}/add",
                         new MessageRequest(5));
                 }
             }
@@ -92,7 +92,7 @@ namespace CornBot.Handlers
                     }
                 }
                 catch (HttpException) { }
-                await api.PostModelAsync<MessageRequest, MessageResponse>($"/message/{channel.Id}/{message.Author.Id}/add",
+                await api.PostModelAsync<MessageRequest, MessageResponse>($"/message/{channel.Guild.Id}/{message.Author.Id}/add",
                     new MessageRequest(1));
             }
             else if (isPride)

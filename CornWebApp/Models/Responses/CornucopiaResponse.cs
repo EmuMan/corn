@@ -4,14 +4,14 @@ namespace CornWebApp.Models.Responses
 {
     [method: JsonConstructor]
     public class CornucopiaResponse(
-        CornucopiaResponse.StatusCode status,
+        CornucopiaResponse.CornucopiaStatus status,
         string? message,
         long cornAdded,
         long cornTotal,
         List<string> board,
         int matches)
     {
-        public enum StatusCode
+        public enum CornucopiaStatus
         {
             Success,
             AlreadyClaimedMax,
@@ -19,7 +19,7 @@ namespace CornWebApp.Models.Responses
             AmountTooHigh,
         }
 
-        public StatusCode Status { get; set; } = status;
+        public CornucopiaStatus Status { get; set; } = status;
         public string? Message { get; set; } = message;
         public long CornAdded { get; set; } = cornAdded;
         public long CornTotal { get; set; } = cornTotal;

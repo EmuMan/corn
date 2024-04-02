@@ -56,6 +56,10 @@ namespace CornWebApp
                 if (userId.HasValue && guildId.HasValue)
                 {
                     var user = await Database.Users.GetAsync(guildId.Value, userId.Value);
+                    if (user is null)
+                    {
+                        return Results.NotFound();
+                    }
                     return Results.Json(new { user }, JsonSerializerContext);
                 }
                 else if (userId.HasValue)
@@ -76,10 +80,15 @@ namespace CornWebApp
 
             usersApi.MapGet("/{guildId}/{userId}", async (HttpContext context, ulong guildId, ulong userId) =>
             {
-                var user = await Database.Users.GetAsync(guildId, userId);
+                await Database.Guilds.CreateIfNotExists(guildId);
+                var user = await Database.Users.GetOrCreateAsync(guildId, userId);
                 if (user is null)
                 {
                     return Results.NotFound();
+                }
+                if (user.IsNew)
+                {
+                    await Database.Users.InsertAsync(user);
                 }
                 return Results.Json(user, JsonSerializerContext);
             });
@@ -137,7 +146,7 @@ namespace CornWebApp
 
                 var result = Economy.PerformDaily(user, guild);
 
-                if (result.Status == DailyResponse.StatusCode.Success)
+                if (result.Status == DailyResponse.DailyStatus.Success)
                 {
                     await Database.History.InsertAsync(new(
                         id: 0,
@@ -218,7 +227,7 @@ namespace CornWebApp
                 var result = Economy.PerformCornucopia(user, request.Amount, Random);
                 await Database.Users.InsertOrUpdateAsync(user);
 
-                if (result.Status == CornucopiaResponse.StatusCode.Success)
+                if (result.Status == CornucopiaResponse.CornucopiaStatus.Success)
                 {
                     var timestamp = Events.GetAdjustedTimestamp();
                     await Database.History.InsertAsync(new(
@@ -345,6 +354,8 @@ namespace CornWebApp
                 {
                     return Results.BadRequest("Invalid message");
                 }
+
+                await Database.Guilds.CreateIfNotExists(guildId);
 
                 var user = await Database.Users.GetOrCreateAsync(guildId, userId);
                 var result = Economy.AddCornWithPenalty(user, message.Amount);

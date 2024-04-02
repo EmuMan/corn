@@ -33,13 +33,14 @@ namespace CornBot.Modules
         [SlashCommand("corn", "Gets your total corn count")]
         public async Task Corn([Summary(description: "user to lookup")] IUser? user = null)
         {
+            var isSender = user == null;
+            user ??= Context.User;
             var name = Events.GetCurrentName();
-
             var api = _services.GetRequiredService<CornAPI>();
-            var userInfo = await api.GetModelAsync<User>($"/users/{Context.Guild.Id}/{Context.User.Id}");
+            var userInfo = await api.GetModelAsync<User>($"/users/{Context.Guild.Id}/{user.Id}");
 
             var cornEmoji = Events.GetCurrentEmoji();
-            var stringId = user is null ? "you have" :
+            var stringId = isSender ? "you have" :
                     user is not SocketGuildUser guildUser ? $"{user} has" :
                     $"{guildUser.DisplayName} ({guildUser}) has";
             await RespondAsync($"{cornEmoji} {stringId} {userInfo.CornCount} {name} {cornEmoji}");
@@ -52,12 +53,13 @@ namespace CornBot.Modules
             var name = Events.GetCurrentName();
             var cornEmoji = Events.GetCurrentEmoji();
             var api = _services.GetRequiredService<CornAPI>();
-            var response = await api.PostModelAsync<DailyResponse>($"/daily/{Context.Guild.Id}/{Context.User.Id}/complete");
+            var response = await api.PostModelAsync<DailyResponse>($"/daily/{Context.Guild.Id}/{Context.User.Id}/claim");
             await RespondAsync(response.Status switch
             {
-                DailyResponse.StatusCode.Success => $"you shucked 100 {name} today!",
-                DailyResponse.StatusCode.AlreadyClaimed => 
+                DailyResponse.DailyStatus.Success =>
                     $"{cornEmoji} you have shucked {response.CornAdded} {name} today. you now have {response.CornTotal} {name} {cornEmoji}",
+                DailyResponse.DailyStatus.AlreadyClaimed => 
+                    $"what are you trying to do, spam the daily command?",
                 _ => "something went wrong, please try again later."
             });
         }
@@ -71,14 +73,15 @@ namespace CornBot.Modules
         public async Task Leaderboard()
         {
             var name = Events.GetCurrentName();
+            var client = _services.GetRequiredService<CornClient>();
             var api = _services.GetRequiredService<CornAPI>();
-            var leaderboard = api.GetModelAsync<LeaderboardResponse>($"/leaderboard/{Context.Guild.Id}");
+            var leaderboard = await api.GetModelAsync<LeaderboardResponse>($"/leaderboard/{Context.Guild.Id}");
 
             var embed = new EmbedBuilder()
                 .WithColor(Color.Gold)
                 .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
                 .WithTitle($"Top {name} havers:")
-                .WithDescription(leaderboard.ToString())
+                .WithDescription(await leaderboard.ToStringAsync(client))
                 .WithCurrentTimestamp()
                 .Build();
 
@@ -89,9 +92,11 @@ namespace CornBot.Modules
         [SlashCommand("stats", "Gets an overview of your recent corn shucking")]
         public async Task Stats([Summary(description: "user to lookup")] IUser? user = null)
         {
+            user ??= Context.User;
             var name = Events.GetCurrentName();
+            var client = _services.GetRequiredService<CornClient>();
             var api = _services.GetRequiredService<CornAPI>();
-            var history = await api.GetModelAsync<HistorySummary>($"/history/{Context.Guild.Id}/{Context.User.Id}");
+            var history = await api.GetModelAsync<HistorySummary>($"/history/{user.Id}");
 
             EmbedFieldBuilder[] fields =
             [
@@ -145,7 +150,7 @@ namespace CornBot.Modules
                     .WithIsInline(true),
             ];
 
-            var displayName = Events.GetUserDisplayString(user, false);
+            var displayName = await client.GetUserDisplayStringAsync(Context.Guild.Id, user.Id, false);
 
             var author = new EmbedAuthorBuilder()
                 .WithIconUrl(user.GetAvatarUrl())
@@ -172,20 +177,20 @@ namespace CornBot.Modules
             var api = _services.GetRequiredService<CornAPI>();
             var cornucopiaInfo = await api.GetModelAsync<CornucopiaInfoResponse>($"/cornucopia/{Context.Guild.Id}/{Context.User.Id}/info");
             var result = await api.PostModelAsync<CornucopiaRequest, CornucopiaResponse>(
-                $"/cornucopia/{Context.Guild.Id}/{Context.User.Id}/complete",
+                $"/cornucopia/{Context.Guild.Id}/{Context.User.Id}/perform",
                 new CornucopiaRequest(amount));
 
-            if (result.Status == CornucopiaResponse.StatusCode.AlreadyClaimedMax)
+            if (result.Status == CornucopiaResponse.CornucopiaStatus.AlreadyClaimedMax)
             {
                 await RespondAsync("what are you trying to do, feed your gambling addiction?");
                 return;
             }
-            else if (result.Status == CornucopiaResponse.StatusCode.AmountTooLow)
+            else if (result.Status == CornucopiaResponse.CornucopiaStatus.AmountTooLow)
             {
                 await RespondAsync($"you can't gamble less than 1 {name}.");
                 return;
             }
-            else if (result.Status == CornucopiaResponse.StatusCode.AmountTooHigh)
+            else if (result.Status == CornucopiaResponse.CornucopiaStatus.AmountTooHigh)
             {
                 await RespondAsync($"you can't gamble more than {cornucopiaInfo.MaxAmount} {name} at a time.");
                 return;
@@ -202,7 +207,7 @@ namespace CornBot.Modules
                 .WithColor(Color.Gold);
 
             await RespondAsync(embeds: [embed.Build()]);
-            for (int i = 0; i < result.GetMaxWidth() + 1; i++)
+            for (int i = 1; i < result.GetMaxWidth() + 1; i++)
             {
                 await Task.Delay(2000);
                 embed.Description = result.RenderToString(amount, cornucopiaInfo, i);
