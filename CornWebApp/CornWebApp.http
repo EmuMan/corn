@@ -1,0 +1,77 @@
+@CornWebApp_HostAddress = http://localhost:5055
+
+POST {{CornWebApp_HostAddress}}/guilds
+Accept: application/json
+Content-Type: application/json
+
+{
+    "guildId": 12345
+}
+
+###
+
+GET {{CornWebApp_HostAddress}}/guilds/12345
+Accept: application/json
+
+###
+
+POST {{CornWebApp_HostAddress}}/users
+Accept: application/json
+Content-Type: application/json
+
+{
+    "guildId": 12345,
+    "userId": 67890
+}
+
+###
+
+GET {{CornWebApp_HostAddress}}/users?guildId=12345
+Accept: application/json
+
+###
+
+GET {{CornWebApp_HostAddress}}/users/12345/67890
+Accept: application/json
+
+###
+
+POST {{CornWebApp_HostAddress}}/daily/12345/67890/claim
+Accept: application/json
+
+###
+
+POST {{CornWebApp_HostAddress}}/daily/12345/67890/reset
+Accept: application/json
+
+###
+
+POST {{CornWebApp_HostAddress}}/daily/reset
+Accept: application/json
+
+###
+
+POST {{CornWebApp_HostAddress}}/cornucopia/12345/67890/perform
+Accept: application/json
+Content-Type: application/json
+
+{
+    "amount": 10
+}
+
+###
+
+POST {{CornWebApp_HostAddress}}/cornucopia/12345/67890/reset
+Accept: application/json
+
+###
+
+POST {{CornWebApp_HostAddress}}/cornucopia/reset
+Accept: application/json
+
+###
+
+GET {{CornWebApp_HostAddress}}/leaderboard/12345
+Accept: application/json
+
+###

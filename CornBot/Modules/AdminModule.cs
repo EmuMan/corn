@@ -25,21 +25,5 @@ namespace CornBot.Modules
                 LogSeverity.Debug, "Modules", "Creating GeneralModule...");
         }
 
-        [SlashCommand("set-announcement-channel", "Sets the guild's announcement channel (no channel specified removes the current channel).")]
-        [RequireUserPermission(GuildPermission.Administrator)]
-        [EnabledInDm(false)]
-        public async Task SetAnnouncementChannel(ITextChannel? channel = null)
-        {
-            var guildTracker = _services.GetRequiredService<GuildTracker>();
-            var guild = guildTracker.LookupGuild(Context.Guild.Id);
-            if (channel == null)
-                guild.AnnouncementChannel = 0;
-            else
-                guild.AnnouncementChannel = channel.Id;
-            await guildTracker.SaveGuildInfo(guild);
-            await RespondAsync("The corn announcements channel has been successfully set to " +
-                (channel == null ? "none" : channel!.Mention) + "!");
-        }
-
     }
 }

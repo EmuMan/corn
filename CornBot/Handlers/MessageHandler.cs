@@ -12,6 +12,8 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using CornBot.Models;
 using System.Diagnostics;
+using CornBot.Models.Requests;
+using CornBot.Models.Responses;
 
 namespace CornBot.Handlers
 {
@@ -47,12 +49,12 @@ namespace CornBot.Handlers
             if (message.Channel is not SocketGuildChannel channel) return;
 
             var content = message.Content;
-            var userInfo = _services.GetRequiredService<GuildTracker>().LookupGuild(channel.Guild).GetUserInfo(message.Author);
+            var api = _services.GetRequiredService<CornAPI>();
 
             WordDetector.DetectionLevel result = _cornDetector.Parse(content);
             WordDetector.DetectionLevel prideResult = _prideDetector.Parse(content);
             var isPride = prideResult == WordDetector.DetectionLevel.FULL &&
-                        Utility.GetCurrentEvent() == Constants.CornEvent.PRIDE;
+                        Events.GetCurrentEvent() == Constants.CornEvent.PRIDE;
 
             // this is a little stupid but necessary i guess
             if (message.MentionedUsers.Any(u => u.Id == _client.CurrentUser.Id) ||
@@ -62,9 +64,8 @@ namespace CornBot.Handlers
                 {
                     try { await message.Channel.SendMessageAsync(Constants.CORN_ANGRY_DIALOGUE); }
                     catch (HttpException) { }
-                    userInfo.CornCount -= 1000;
-                    await userInfo.Save();
-                    await userInfo.LogAction(UserHistory.ActionType.MESSAGE, -1000);
+                    await api.PostModelAsync<MessageRequest, MessageResponse>($"/message/{channel.Guild.Id}/{message.Author.Id}/add",
+                        new MessageRequest(-1000));
                 }
                 else
                 {
@@ -72,14 +73,15 @@ namespace CornBot.Handlers
                         Constants.CORN_PRIDE_DIALOGUE_COMBINED : Constants.CORN_NICE_DIALOGUE;
                     try { await message.Channel.SendMessageAsync(response); }
                     catch (HttpException) { }
-                    await userInfo.AddCornWithPenalty(5);
+                    await api.PostModelAsync<MessageRequest, MessageResponse>($"/message/{channel.Guild.Id}/{message.Author.Id}/add",
+                        new MessageRequest(5));
                 }
             }
             else if (result == WordDetector.DetectionLevel.PARTIAL)
             {
                 try 
                 {
-                    if (Utility.GetCurrentEvent() == Constants.CornEvent.PRIDE &&
+                    if (Events.GetCurrentEvent() == Constants.CornEvent.PRIDE &&
                         Emote.TryParse(Constants.PRIDE_CORN_EMOJI, out var emote))
                     {
                         await message.AddReactionAsync(emote);
@@ -90,7 +92,8 @@ namespace CornBot.Handlers
                     }
                 }
                 catch (HttpException) { }
-                await userInfo.AddCornWithPenalty(1);
+                await api.PostModelAsync<MessageRequest, MessageResponse>($"/message/{channel.Guild.Id}/{message.Author.Id}/add",
+                    new MessageRequest(1));
             }
             else if (isPride)
             {

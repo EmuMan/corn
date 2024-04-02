@@ -9,6 +9,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
+using CornBot.Models.Responses;
+using CornBot.Models.Requests;
 
 namespace CornBot.Modules
 {
@@ -26,142 +29,135 @@ namespace CornBot.Modules
                 LogSeverity.Debug, "Modules", "Creating EconomyModule...");
         }
 
-        [EnabledInDm(false)]
+        [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("corn", "Gets your total corn count")]
         public async Task Corn([Summary(description: "user to lookup")] IUser? user = null)
         {
-            var cornEmoji = Utility.GetCurrentEmoji();
-            var name = Utility.GetCurrentName();
-            var economy = _services.GetRequiredService<GuildTracker>();
-            var userInfo = economy.LookupGuild(Context.Guild).GetUserInfo(user ?? Context.User);
-            var stringId = user is null ? "you have" :
+            var isSender = user == null;
+            user ??= Context.User;
+            var name = Events.GetCurrentName();
+            var api = _services.GetRequiredService<CornAPI>();
+            var userInfo = await api.GetModelAsync<User>($"/users/{Context.Guild.Id}/{user.Id}");
+
+            var cornEmoji = Events.GetCurrentEmoji();
+            var stringId = isSender ? "you have" :
                     user is not SocketGuildUser guildUser ? $"{user} has" :
                     $"{guildUser.DisplayName} ({guildUser}) has";
             await RespondAsync($"{cornEmoji} {stringId} {userInfo.CornCount} {name} {cornEmoji}");
         }
 
-        [EnabledInDm(false)]
+        [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("daily", "Performs your daily shucking of corn")]
         public async Task Daily()
         {
-            var name = Utility.GetCurrentName();
-            var economy = _services.GetRequiredService<GuildTracker>();
-            var user = economy.LookupGuild(Context.Guild).GetUserInfo(Context.User);
-
-            if (user.HasClaimedDaily)
-                await RespondAsync("what are you trying to do, spam the daily command?");
-            else
+            var name = Events.GetCurrentName();
+            var cornEmoji = Events.GetCurrentEmoji();
+            var api = _services.GetRequiredService<CornAPI>();
+            var response = await api.PostModelAsync<DailyResponse>($"/daily/{Context.Guild.Id}/{Context.User.Id}/claim");
+            await RespondAsync(response.Status switch
             {
-                var cornEmoji = Utility.GetCurrentEmoji();
-                var amount = await user.PerformDaily();
-                await RespondAsync($"{cornEmoji} you have shucked {amount} {name} today. you now have {user.CornCount} {name} {cornEmoji}");
-            }
+                DailyResponse.DailyStatus.Success =>
+                    $"{cornEmoji} you have shucked {response.CornAdded} {name} today. you now have {response.CornTotal} {name} {cornEmoji}",
+                DailyResponse.DailyStatus.AlreadyClaimed => 
+                    $"what are you trying to do, spam the daily command?",
+                _ => "something went wrong, please try again later."
+            });
         }
 
-        [EnabledInDm(false)]
-        [SlashCommand("lb", "Alias for /leaderboards")]
-        public async Task LeaderboardsAlias() => await Leaderboards();
+        [CommandContextType(InteractionContextType.Guild)]
+        [SlashCommand("lb", "Alias for /leaderboard")]
+        public async Task LeaderboardAlias() => await Leaderboard();
 
-        [EnabledInDm(false)]
-        [SlashCommand("leaderboards", "Displays the top corn havers in the guild")]
-        public async Task Leaderboards()
+        [CommandContextType(InteractionContextType.Guild)]
+        [SlashCommand("leaderboard", "Displays the top corn havers in the guild")]
+        public async Task Leaderboard()
         {
-            var name = Utility.GetCurrentName();
-            var economy = _services.GetRequiredService<GuildTracker>().LookupGuild(Context.Guild);
+            var name = Events.GetCurrentName();
+            var client = _services.GetRequiredService<CornClient>();
+            var api = _services.GetRequiredService<CornAPI>();
+            var leaderboard = await api.GetModelAsync<LeaderboardResponse>($"/leaderboard/{Context.Guild.Id}");
 
             var embed = new EmbedBuilder()
                 .WithColor(Color.Gold)
                 .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
                 .WithTitle($"Top {name} havers:")
-                .WithDescription(await economy.GetLeaderboardsString())
+                .WithDescription(await leaderboard.ToStringAsync(client))
                 .WithCurrentTimestamp()
                 .Build();
 
-            await RespondAsync(embeds: new Embed[] { embed });
+            await RespondAsync(embeds: [embed]);
         }
 
-        [EnabledInDm(true)]
-        [SlashCommand("total", "Gets the total corn count across all servers")]
-        public async Task Total()
-        {
-            var name = Utility.GetCurrentName();
-            var cornEmoji = Utility.GetCurrentEmoji();
-            long total = _services.GetRequiredService<GuildTracker>().GetTotalCorn();
-            await RespondAsync($"{cornEmoji} a total of {total:n0} {name} has been shucked across all servers {cornEmoji}");
-        }
-
-        [EnabledInDm(false)]
+        [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("stats", "Gets an overview of your recent corn shucking")]
         public async Task Stats([Summary(description: "user to lookup")] IUser? user = null)
         {
-            var currencyName = Utility.GetCurrentName();
-            var economy = _services.GetRequiredService<GuildTracker>();
             user ??= Context.User;
-            var guildInfo = economy.LookupGuild(Context.Guild);
-            var userInfo = guildInfo.GetUserInfo(user);
+            var name = Events.GetCurrentName();
+            var client = _services.GetRequiredService<CornClient>();
+            var api = _services.GetRequiredService<CornAPI>();
+            var history = await api.GetModelAsync<HistorySummary>($"/history/{user.Id}");
 
-            var history = await economy.GetHistory(userInfo.UserId);
-
-            EmbedFieldBuilder[] fields = new EmbedFieldBuilder[]
-            {
+            EmbedFieldBuilder[] fields =
+            [
                 new EmbedFieldBuilder()
                     .WithName("Daily Count")
-                    .WithValue($"{history.GetDailyCount(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalDailyCount():n0})")
+                    .WithValue($"{history.DailyCount[Context.Guild.Id]:n0} " +
+                        $"({history.DailyCountGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Daily Average")
-                    .WithValue($"{history.GetDailyAverage(guildInfo.GuildId):n2} " +
-                        $"({history.GetGlobalDailyAverage():n2})")
+                    .WithValue($"{history.DailyAverage[Context.Guild.Id]:n2} " +
+                        $"({history.DailyAverageGlobal:n2})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Daily Total")
-                    .WithValue($"{history.GetDailyTotal(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalDailyTotal():n0})")
+                    .WithValue($"{history.DailyTotal[Context.Guild.Id]:n0} " +
+                        $"({history.DailyTotalGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Longest Daily Streak")
-                    .WithValue($"{history.GetLongestDailyStreak(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalLongestDailyStreak():n0})")
+                    .WithValue($"{history.LongestDailyStreak[Context.Guild.Id]:n0} " +
+                        $"({history.LongestDailyStreakGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Current Daily Streak")
-                    .WithValue($"{history.GetCurrentDailyStreak(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalCurrentDailyStreak():n0})")
+                    .WithValue($"{history.CurrentDailyStreak[Context.Guild.Id]:n0} " +
+                        $"({history.CurrentDailyStreakGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Message Total")
-                    .WithValue($"{history.GetMessageTotal(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalMessageTotal():n0})")
+                    .WithValue($"{history.MessageTotal[Context.Guild.Id]:n0} " +
+                        $"({history.MessageTotalGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Server Total")
-                    .WithValue(userInfo.CornCount.ToString("n0"))
+                    .WithValue(history.Total[Context.Guild.Id].ToString("n0"))
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Global Total")
-                    .WithValue(economy.GetTotalCorn(user).ToString("n0"))
+                    .WithValue(history.TotalGlobal.ToString("n0"))
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Cornucopia Net Gain")
-                    .WithValue($"{history.GetCornucopiaReturns(guildInfo.GuildId):n0} " +
-                        $"({history.GetGlobalCornucopiaReturns():n0})")
+                    .WithValue($"{history.CornucopiaTotal[Context.Guild.Id]:n0} " +
+                        $"({history.CornucopiaTotalGlobal:n0})")
                     .WithIsInline(true),
                 new EmbedFieldBuilder()
                     .WithName("Cornucopia Percent")
-                    .WithValue($"{history.GetCornucopiaPercent(guildInfo.GuildId)*100.0:n2}% " +
-                        $"({history.GetGlobalCornucopiaPercent()*100.0:n2}%)")
+                    .WithValue($"{history.CornucopiaPercent[Context.Guild.Id]*100.0:n2}% " +
+                        $"({history.CornucopiaPercentGlobal*100.0:n2}%)")
                     .WithIsInline(true),
-            };
+            ];
 
-            var displayName = Utility.GetUserDisplayString(user, false);
+            var displayName = await client.GetUserDisplayStringAsync(Context.Guild.Id, user.Id, false);
 
             var author = new EmbedAuthorBuilder()
                 .WithIconUrl(user.GetAvatarUrl())
                 .WithName(user.Username);
 
             var embed = new EmbedBuilder()
-                .WithTitle($"{displayName}'s {currencyName} stats")
+                .WithTitle($"{displayName}'s {name} stats")
                 .WithDescription("*server (global)*")
                 .WithAuthor(author)
                 .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
@@ -170,66 +166,64 @@ namespace CornBot.Modules
                 .WithFields(fields)
                 .Build();
 
-            await RespondAsync(embeds: new Embed[] { embed });
+            await RespondAsync(embeds: [embed]);
         }
 
-        [EnabledInDm(false)]
+        [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("cornucopia", "play a game of slots to gamble your corn")]
         public async Task Cornucopia([Summary(description: "amount of corn to gamble")] long amount)
         {
-            var name = Utility.GetCurrentName();
-            var economy = _services.GetRequiredService<GuildTracker>();
-            var userInfo = economy.LookupGuild(Context.Guild).GetUserInfo(Context.User);
-            var userHistory = await economy.GetHistory(userInfo.UserId);
-            var random = _services.GetRequiredService<Random>();
-            var timestamp = Utility.GetAdjustedTimestamp();
-            var numberInDay = userHistory.GetNumberOfCornucopias(userInfo.Guild.GuildId, timestamp.Day);
-            var maxAmount = userInfo.MaxCornucopiaAllowed;
+            var name = Events.GetCurrentName();
+            var api = _services.GetRequiredService<CornAPI>();
+            var cornucopiaInfo = await api.GetModelAsync<CornucopiaInfoResponse>($"/cornucopia/{Context.Guild.Id}/{Context.User.Id}/info");
+            var result = await api.PostModelAsync<CornucopiaRequest, CornucopiaResponse>(
+                $"/cornucopia/{Context.Guild.Id}/{Context.User.Id}/perform",
+                new CornucopiaRequest(amount));
 
-            if (numberInDay >= 3)
-                await RespondAsync("what are you trying to do, feed your gambling addiction?");
-            else if (amount < 1)
-                await RespondAsync($"you can't gamble less than 1 {name}.");
-            else if (amount > userInfo.CornCount)
-                await RespondAsync($"you don't have that much {name}.");
-            else if (amount > maxAmount)
-                await RespondAsync($"you can't gamble more than {maxAmount} {name} at a time.");
-            else
+            if (result.Status == CornucopiaResponse.CornucopiaStatus.AlreadyClaimedMax)
             {
-                SlotMachine slotMachine = new(3, amount, random);
+                await RespondAsync("what are you trying to do, feed your gambling addiction?");
+                return;
+            }
+            else if (result.Status == CornucopiaResponse.CornucopiaStatus.AmountTooLow)
+            {
+                await RespondAsync($"you can't gamble less than 1 {name}.");
+                return;
+            }
+            else if (result.Status == CornucopiaResponse.CornucopiaStatus.AmountTooHigh)
+            {
+                await RespondAsync($"you can't gamble more than {cornucopiaInfo.MaxAmount} {name} at a time.");
+                return;
+            }
 
-                var author = new EmbedAuthorBuilder()
-                    .WithIconUrl(Context.User.GetAvatarUrl())
-                    .WithName(Context.User.ToString());
-                var embed = new EmbedBuilder()
-                    .WithDescription(slotMachine.RenderToString(0, numberInDay))
-                    .WithAuthor(author)
-                    .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
-                    .WithCurrentTimestamp()
-                    .WithColor(Color.Gold);
+            var author = new EmbedAuthorBuilder()
+                .WithIconUrl(Context.User.GetAvatarUrl())
+                .WithName(Context.User.ToString());
+            var embed = new EmbedBuilder()
+                .WithDescription(result.RenderToString(amount, cornucopiaInfo, 0))
+                .WithAuthor(author)
+                .WithThumbnailUrl(Constants.CORN_THUMBNAIL_URL)
+                .WithCurrentTimestamp()
+                .WithColor(Color.Gold);
 
-                await RespondAsync(embeds: new Embed[] { embed.Build() });
-                await userInfo.UpdateForGambling(amount, slotMachine.GetWinnings());
-                await userInfo.Save();
-                while (slotMachine.RevealProgress < slotMachine.Size)
-                {
-                    await Task.Delay(2000);
-                    slotMachine.RevealProgress++;
-                    embed.Description = slotMachine.RenderToString(userInfo.CornCount, numberInDay);
-                    await ModifyOriginalResponseAsync(m => m.Embed = embed.Build());
-                }
-
+            await RespondAsync(embeds: [embed.Build()]);
+            for (int i = 1; i < result.GetMaxWidth() + 1; i++)
+            {
+                await Task.Delay(2000);
+                embed.Description = result.RenderToString(amount, cornucopiaInfo, i);
+                await ModifyOriginalResponseAsync(m => m.Embed = embed.Build());
             }
         }
 
 
-        [EnabledInDm(false)]
+        [CommandContextType(InteractionContextType.Guild)]
         [SlashCommand("cornucopia-max", "play a game of slots with the highest allowed amount of corn")]
         public async Task CornucopiaMax()
         {
-            var economy = _services.GetRequiredService<GuildTracker>();
-            var userInfo = economy.LookupGuild(Context.Guild).GetUserInfo(Context.User);
-            await Cornucopia(userInfo.MaxCornucopiaAllowed);
+            // this causes a double API call which is... not super desirable, but also i'm lazy
+            var api = _services.GetRequiredService<CornAPI>();
+            var cornucopiaInfo = await api.GetModelAsync<CornucopiaInfoResponse>($"/cornucopia/{Context.Guild.Id}/{Context.User.Id}/info");
+            await Cornucopia(cornucopiaInfo.MaxAmount);
         }
 
     }

@@ -38,9 +38,8 @@ namespace CornBot.Utilities
         {
             if (CurrentFont is null) return null;
 
-            TextOptions options = new(CurrentFont)
+            RichTextOptions options = new(CurrentFont)
             {
-
                 Origin = new Point(20, 20),
                 WrappingLength = image.Width - 40,
                 HorizontalAlignment = HorizontalAlignment.Left,
@@ -49,7 +48,7 @@ namespace CornBot.Utilities
             };
 
             // get text size
-            var textRect = TextMeasurer.Measure(text, options);
+            var textRect = TextMeasurer.MeasureSize(text, options);
 
             // add white top
             Image<Rgba32> finalImage = new(
@@ -60,7 +59,7 @@ namespace CornBot.Utilities
             finalImage.Mutate(x => x.DrawImage(image, new Point(0, 40 + (int)textRect.Height), 1.0f));
 
             // render text
-            finalImage.Mutate(x => x.DrawText(options, text, Brushes.Solid(Color.Black)));
+            finalImage.Mutate(x => x.DrawText(options, text, Color.Black));
 
             return finalImage;
         }
@@ -70,7 +69,7 @@ namespace CornBot.Utilities
             if (CurrentFont is null) return;
 
             var client = _services.GetRequiredService<CornClient>();
-            List<FontFamily> broken = new();
+            List<FontFamily> broken = [];
 
             foreach (var fallbackFont in FallbackFonts)
             {
@@ -79,12 +78,12 @@ namespace CornBot.Utilities
                     Origin = new Point(20, 20),
                     HorizontalAlignment = HorizontalAlignment.Left,
                     LineSpacing = 1.1f,
-                    FallbackFontFamilies = new[] {fallbackFont},
+                    FallbackFontFamilies = [fallbackFont],
                 };
 
                 try
                 {
-                    TextMeasurer.Measure("test", options);
+                    TextMeasurer.MeasureSize("test", options);
                 }
                 catch (EndOfStreamException)
                 {

@@ -1,14 +1,12 @@
-using Discord;
-using Discord.WebSocket;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CornBot.Utilities
+namespace CornWebApp.Utilities
 {
-    public class Utility
+    public class Events
     {
 
         public static DateTimeOffset GetAdjustedTimestamp()
@@ -54,22 +52,6 @@ namespace CornBot.Utilities
                     return "pumpkins";
                 default:
                     return "corn";
-            }
-        }
-
-        public static string GetUserDisplayString(IUser user, bool includeUsername)
-        {
-            string displayName = user is SocketGuildUser guildUser ?
-                guildUser.DisplayName :
-                (user.GlobalName ?? user.Username);
-
-            if (includeUsername)
-            {
-                return displayName == user.Username ? user.Username : $"{displayName} ({user.Username})";
-            }
-            else
-            {
-                return displayName;
             }
         }
 

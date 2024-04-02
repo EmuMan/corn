@@ -1,7 +1,6 @@
 using CornBot.Handlers;
 using CornBot.Utilities;
 using CornBot.Models;
-using CornBot.Serialization;
 using Discord.Interactions;
 using Discord.WebSocket;
 using System;
