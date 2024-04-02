@@ -146,6 +146,9 @@ namespace CornWebApp
 
                 var result = Economy.PerformDaily(user, guild);
 
+                await Database.Guilds.InsertOrUpdateAsync(guild);
+                await Database.Users.InsertOrUpdateAsync(user);
+
                 if (result.Status == DailyResponse.DailyStatus.Success)
                 {
                     await Database.History.InsertAsync(new(
@@ -157,9 +160,6 @@ namespace CornWebApp
                         timestamp: Events.GetAdjustedTimestamp()
                     ));
                 }
-
-                await Database.Guilds.InsertOrUpdateAsync(guild);
-                await Database.Users.InsertOrUpdateAsync(user);
 
                 return Results.Json(result, JsonSerializerContext, statusCode: 201);
             });
