@@ -143,7 +143,11 @@ namespace CornWebApp.Models
         {
             var totalIn = pairs.Sum(pair => pair.Item1.Value);
             var totalOut = pairs.Sum(pair => pair.Item2.Value);
-            return (totalOut - totalIn) / totalIn;
+            if (totalIn == 0)
+            {
+                return 0.0;
+            }
+            return (double)(totalOut - totalIn) / totalIn;
         }
 
         private void ComputeDailyStats(

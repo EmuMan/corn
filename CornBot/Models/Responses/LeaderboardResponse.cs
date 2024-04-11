@@ -37,7 +37,7 @@ namespace CornBot.Models.Responses
             {
                 var suffix = tuple.Item2.HasClaimedDaily ? "" : $" {Constants.CALENDAR_EMOJI}";
                 var displayString = await client.GetUserDisplayStringAsync(tuple.Item2.GuildId, tuple.Item2.UserId, true);
-                sb.Append($"{tuple.Item1} : {displayString} - {tuple.Item2.CornCount} {name}{suffix}");
+                sb.AppendLine($"{tuple.Item1} : {displayString} - {tuple.Item2.CornCount} {name}{suffix}");
             }
             return sb.ToString();
         }
